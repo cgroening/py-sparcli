@@ -77,6 +77,32 @@ class TestDatePickerNavigation:
         assert outcome.value == date(2026, 2, 28)
 
 
+class TestDatePickerDateBounds:
+    def test_forward_navigation_clamps_at_max(self) -> None:
+        outcome = _run(
+            DatePicker("When?").initial(date.max),
+            [KeyCode.RIGHT, KeyCode.DOWN, KeyCode.ENTER],
+        )
+        assert outcome.value == date.max
+
+    def test_backward_navigation_clamps_at_min(self) -> None:
+        outcome = _run(
+            DatePicker("When?").initial(date.min),
+            [KeyCode.LEFT, KeyCode.UP, KeyCode.ENTER],
+        )
+        assert outcome.value == date.min
+
+    def test_year_jump_past_max_clamps(self) -> None:
+        source = ScriptedSource(
+            [
+                InputEvent.from_key(KeyPress(KeyCode.PAGE_DOWN, shift=True)),
+                InputEvent.from_key(KeyPress.new(KeyCode.ENTER)),
+            ]
+        )
+        outcome = DatePicker("When?").initial(date.max).run_with(source)
+        assert outcome.value == date.max
+
+
 class TestDatePickerSubmitCancel:
     def test_enter_submits_initial_date(self) -> None:
         outcome = _run(DatePicker("When?").initial(_INITIAL), [KeyCode.ENTER])

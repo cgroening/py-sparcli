@@ -106,6 +106,14 @@ class TestNumberInput:
         # The field formats the initial value with the configured decimals.
         assert "1.00" in prompt.frame().plain()
 
+    def test_negative_decimals_are_clamped_to_zero(self) -> None:
+        # A negative decimals setting would break str formatting; it is
+        # clamped so the field renders without raising.
+        prompt = NumberInput("n").initial(1.0).decimals(-3)
+        assert "1" in prompt.frame().plain()
+        prompt_kw = NumberInput("n", initial=2.0, decimals=-1)
+        assert "2" in prompt_kw.frame().plain()
+
     def test_non_calculator_rejects_operators(self) -> None:
         # '+' is not accepted without calculator mode, so only '2' is typed.
         outcome = _run(

@@ -77,6 +77,10 @@ class Style:
         """Returns a copy with ``attr`` added to the attribute flags."""
         return replace(self, attrs=self.attrs | attr)
 
+    def remove_modifier(self, attr: Attribute) -> Style:
+        """Returns a copy with ``attr`` cleared from the attribute flags."""
+        return replace(self, attrs=self.attrs & ~attr)
+
     def bold(self) -> Style:
         """Returns a copy with the bold attribute set."""
         return self.add_modifier(Attribute.BOLD)

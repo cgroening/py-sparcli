@@ -154,20 +154,20 @@ def _suspend_raw() -> tuple[int, list[Any]] | None:
     """Switches the terminal to cooked mode, returning the saved state."""
     if sys.platform == "win32":
         return None
-    try:
-        import termios  # noqa: PLC0415
+    import termios  # available on every non-win32 platform
 
+    try:
         fd = sys.stdin.fileno()
         saved = termios.tcgetattr(fd)
         termios.tcsetattr(fd, termios.TCSADRAIN, _cooked_mode(saved))
-    except (OSError, ValueError, ImportError):
+    except (OSError, ValueError, termios.error):
         return None
     return (fd, saved)
 
 
 def _cooked_mode(mode: list[Any]) -> list[Any]:
     """Returns a copy of ``mode`` with canonical input and echo enabled."""
-    import termios  # noqa: PLC0415
+    import termios
 
     cooked = list(mode)
     cooked[_IFLAG] |= termios.ICRNL
@@ -181,9 +181,9 @@ def _resume_raw(saved: tuple[int, list[Any]] | None) -> None:
     if saved is None:
         return
     fd, mode = saved
-    try:
-        import termios  # noqa: PLC0415
+    import termios  # available on every non-win32 platform
 
+    try:
         termios.tcsetattr(fd, termios.TCSADRAIN, mode)
-    except (OSError, ValueError, ImportError):
+    except (OSError, ValueError, termios.error):
         logger.debug("could not restore raw mode after the editor")

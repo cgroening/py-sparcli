@@ -83,9 +83,9 @@ class Flow[T]:
         return cast("T", self._value)
 
     @property
-    def shortcut_id(self) -> int:
-        """Returns the fired shortcut id; only valid for a shortcut flow."""
-        return self._id if self._id is not None else 0
+    def shortcut_id(self) -> int | None:
+        """Returns the fired shortcut id, or ``None`` for non-shortcut flows."""
+        return self._id
 
 
 def run_prompt[S, T](
@@ -129,6 +129,6 @@ def run_prompt[S, T](
             return Outcome.submitted(flow.value)
         if flow.kind is FlowKind.SHORTCUT:
             inplace.finish()
-            return Outcome.shortcut(flow.shortcut_id)
+            return Outcome.shortcut(flow.shortcut_id or 0)
         inplace.finish()
         return Outcome.cancelled()

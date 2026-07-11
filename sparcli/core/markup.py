@@ -7,8 +7,9 @@ Parses lightweight inline markup such as ``[bold red]text[/]`` into rich text.
 Space-separated specs inside brackets combine attributes and colors; ``on
 <color>`` sets a background; ``[/]`` closes the most recent tag; a backtick
 span like ```code``` gets a cyan code style; and a backslash escapes the next
-character. The parser never fails: unknown tags resolve to an empty style and
-malformed brackets are emitted literally.
+character. The parser never fails: a bracket that names no known style or
+attribute (such as ``array[0]``) and any malformed bracket are emitted
+literally.
 """
 
 from __future__ import annotations
@@ -79,7 +80,7 @@ class _AsRenderable(Renderable):
     def __init__(self, text: Text) -> None:
         self._text = text
 
-    def render(self, max_width: int) -> Rendered:  # noqa: ARG002
+    def render(self, max_width: int) -> Rendered:
         """Returns the text's lines as a rendered block."""
         return Rendered.from_text(self._text)
 
@@ -128,18 +129,25 @@ class _Parser:
         return index + 1
 
     def _consume_tag(self, index: int) -> int:
-        """Handles a ``[...]`` tag or emits a stray ``[`` literally."""
+        """Handles a ``[...]`` tag or emits an unrecognized bracket literally."""
         end = self._chars.find("]", index)
         if end == -1:
             self._buffer.append("[")
             return index + 1
         tag = self._chars[index + 1 : end]
-        self._flush_buffer()
         if tag.strip() == "/":
+            self._flush_buffer()
             if len(self._stack) > 1:
                 self._stack.pop()
-        else:
-            self._stack.append(self._current().patch(_parse_specs(tag)))
+            return end + 1
+        specs = _parse_specs(tag)
+        if specs == Style.new():
+            # A closed bracket that names no known style or attribute (e.g.
+            # "array[0]") is content, not markup, so emit it literally.
+            self._buffer.append(self._chars[index : end + 1])
+            return end + 1
+        self._flush_buffer()
+        self._stack.append(self._current().patch(specs))
         return end + 1
 
     def _toggle_code(self) -> None:

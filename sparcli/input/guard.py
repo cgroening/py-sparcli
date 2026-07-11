@@ -58,14 +58,14 @@ class TerminalGuard:
 
     def _enable_raw(self) -> None:
         """Enables POSIX raw mode, saving the previous terminal settings."""
-        try:
-            import termios  # noqa: PLC0415
-            import tty  # noqa: PLC0415
+        import termios  # available on every non-win32 platform
+        import tty
 
+        try:
             self._fd = sys.stdin.fileno()
             self._saved = termios.tcgetattr(self._fd)
             tty.setraw(self._fd)
-        except (OSError, ValueError, ImportError) as error:
+        except (OSError, ValueError, termios.error) as error:
             self._saved = None
             logger.warning("could not enable raw mode: %s", error)
 
@@ -85,11 +85,11 @@ class TerminalGuard:
             self._disable_paste()
         if self._saved is None:
             return
-        try:
-            import termios  # noqa: PLC0415
+        import termios  # available on every non-win32 platform
 
+        try:
             termios.tcsetattr(self._fd, termios.TCSADRAIN, self._saved)
-        except (OSError, ValueError, ImportError) as error:
+        except (OSError, ValueError, termios.error) as error:
             logger.warning(
                 "could not restore terminal from raw mode: %s", error
             )

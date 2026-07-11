@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import pytest
 
+from sparcli.core import cursor
 from sparcli.core.color import Color
 from sparcli.core.render import Renderable, Rendered
-from sparcli.core.text import Text
+from sparcli.core.text import Line, Text
 from sparcli.errors import ConfigError
-from sparcli.output.live import InPlace
+from sparcli.output.live import InPlace, Live
 from sparcli.output.multiprogress import MultiProgress
 from sparcli.output.pager import Pager
 from sparcli.output.progress import (
@@ -229,6 +230,36 @@ class TestPager:
         monkeypatch.setenv("SPARCLI_NO_TTY", "1")
         with pytest.raises(ConfigError):
             Pager().command("   ").always().page(_FakeWidget())
+
+
+class TestLive:
+    def test_update_draws_the_widget(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        live = Live(InPlace(interactive=True, silent=False))
+        live.update(Rendered([Line.raw("frame-1")]))
+        assert "frame-1" in capsys.readouterr().out
+
+    def test_always_draws_off_terminal(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        monkeypatch.setenv("SPARCLI_NO_TTY", "1")
+        live = Live.always()
+        live.update(Rendered([Line.raw("forced")]))
+        live.finish()
+        assert "forced" in capsys.readouterr().out
+
+    def test_finish_shows_the_cursor(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cursor._hidden = False
+        live = Live(InPlace(interactive=True, silent=False))
+        live.update(Rendered([Line.raw("x")]))
+        live.finish()
+        assert "\x1b[?25h" in capsys.readouterr().out
+        cursor._hidden = False
 
 
 def _expected_default() -> str:

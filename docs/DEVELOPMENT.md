@@ -33,12 +33,12 @@ python -m pytest --no-header -q             # quieter output
 ## Lint and type-check
 
 ```bash
-ruff check .            # lint
-ruff format --check .   # formatting (drop --check to apply)
-basedpyright sparcli    # strict type checking
+ruff check .                  # lint
+ruff format --check .         # formatting (drop --check to apply)
+basedpyright sparcli examples # strict type checking
 ```
 
-Both `ruff check` and `basedpyright` must be clean. The project targets strict typing: every public item is annotated, and `ruff` enforces single quotes, an 80-column line length (the `E501` long-line rule is relaxed because rendered strings and docstrings sometimes exceed it) and an import ordering.
+Both `ruff check` and `basedpyright` must be clean. The project targets strict typing: every public item is annotated, and `ruff` enforces double quotes, an 80-column line length (the `E501` long-line rule is relaxed because rendered strings and docstrings sometimes exceed it) and an import ordering.
 
 ## Run the examples
 
@@ -92,9 +92,9 @@ Output widgets render to a `Rendered` block and are asserted on their plain text
 from sparcli import Table
 
 def test_table_has_a_header_row() -> None:
-    rendered = Table().columns(['A', 'B']).row(['1', '2']).render(80)
+    rendered = Table().columns(["A", "B"]).row(["1", "2"]).render(80)
     lines = [line.plain() for line in rendered.lines]
-    assert 'A' in lines[1] and 'B' in lines[1]
+    assert "A" in lines[1] and "B" in lines[1]
 ```
 
 Input prompts are driven headlessly through `run_with(source)`, where the source is a `ScriptedSource` of queued keys. The scripted source auto-cancels on exhaustion, so a prompt can never loop forever in a test:
@@ -104,9 +104,11 @@ from sparcli.input.event import KeyCode, ScriptedSource
 from sparcli import TextInput
 
 def test_types_and_submits() -> None:
-    source = ScriptedSource.keys([KeyCode.char('h'), KeyCode.char('i'), KeyCode.ENTER])
-    outcome = TextInput('Name').run_with(source)
-    assert outcome.value == 'hi'
+    source = ScriptedSource.keys(
+        [KeyCode.char("h"), KeyCode.char("i"), KeyCode.ENTER]
+    )
+    outcome = TextInput("Name").run_with(source)
+    assert outcome.value == "hi"
 ```
 
 ## Adding a widget

@@ -46,10 +46,10 @@ Every output widget exposes `print()` to write to stdout, `print_to(writer)` to 
 ```python
 from sparcli import Alert, Table
 
-Alert.success('Build finished.').print()
+Alert.success("Build finished.").print()
 
-Table().columns(['Name', 'Status']).row(['web-1', 'online']).row(
-    ['db-1', 'online']
+Table().columns(["Name", "Status"]).row(["web-1", "online"]).row(
+    ["db-1", "online"]
 ).striped(True).print()
 ```
 
@@ -70,7 +70,7 @@ A `Panel` frames content with a rounded border and an optional title. A left-ali
 ```python
 from sparcli import Panel
 
-Panel('All systems nominal.').title('Status').print()
+Panel("All systems nominal.").title("Status").print()
 ```
 
 ```text
@@ -86,9 +86,11 @@ Prompts return an `Outcome` – a submitted value, a cancellation, or a fired sh
 ```python
 from sparcli import Select
 
-outcome = Select('Environment', options=['staging', 'production', 'local']).run()
+outcome = Select(
+    "Environment", options=["staging", "production", "local"]
+).run()
 if outcome.is_submitted:
-    print(f'selected option #{outcome.value}')
+    print(f"selected option #{outcome.value}")
 ```
 
 Its opening frame, with the cursor on the second row:
@@ -106,10 +108,10 @@ Text prompts chain validators and filters fluently:
 from sparcli import Confirm, TextInput
 from sparcli import validate
 
-name = TextInput('Your name?').validate(validate.non_empty()).run()
+name = TextInput("Your name?").validate(validate.non_empty()).run()
 if name.is_submitted:
-    if Confirm('Continue?').run().submitted_or(False):
-        print(f'Hello, {name.value}!')
+    if Confirm("Continue?").run().submitted_or(False):
+        print(f"Hello, {name.value}!")
 ```
 
 ## Theming

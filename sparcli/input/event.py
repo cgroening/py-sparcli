@@ -505,7 +505,7 @@ class TerminalSource(EventSource):
 
     def _next_windows(self) -> InputEvent:
         """Reads the next event from a Windows console."""
-        import msvcrt  # noqa: PLC0415
+        import msvcrt
 
         first = msvcrt.getwch()
         if first in ("\x00", "\xe0"):

@@ -56,7 +56,7 @@ rich/textual/prompt_toolkit, minimal footprint.
 - **Dependency direction:** `output`/`input` → `core`. Never cyclic, never
   `core` → widget layer.
 - **A single unified theme** in `core/theme.py` drives both input and output.
-- The public API is re-exported flat (`from sparcli import ...`, 79 symbols)
+- The public API is re-exported flat (`from sparcli import ...`, 80 symbols)
   plus the namespaces `sparcli.width/terminal/markup/event/validate/shortcut`.
   Every `__init__.py` carries an explicit `__all__` list.
 

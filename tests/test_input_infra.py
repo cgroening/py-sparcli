@@ -22,6 +22,7 @@ from sparcli.input.field import (
     placeholder_line,
     value_line,
 )
+from sparcli.input.guard import TerminalGuard
 from sparcli.input.history import History
 from sparcli.input.line_edit import LineEditor
 from sparcli.input.outcome import Outcome, OutcomeKind
@@ -291,6 +292,33 @@ class TestHistory:
         history._path = path  # pyright: ignore[reportPrivateUsage]
         history.load()
         assert history.entries() == ["a\x85b", "c"]
+
+    def test_save_leaves_no_temp_files(self, tmp_path: Path) -> None:
+        # The atomic write renames its temp file over the target, so no
+        # leftover temp files remain in the directory.
+        history = History()
+        history._path = tmp_path / "history"  # pyright: ignore[reportPrivateUsage]
+        history.add("one")
+        history.save()
+        assert [p.name for p in tmp_path.iterdir()] == ["history"]
+
+    def test_save_replaces_existing_file(self, tmp_path: Path) -> None:
+        path = tmp_path / "history"
+        path.write_text("stale\n", encoding="utf-8")
+        history = History()
+        history._path = path  # pyright: ignore[reportPrivateUsage]
+        history.add("fresh")
+        history.save()
+        assert path.read_text(encoding="utf-8") == "fresh"
+
+
+class TestTerminalGuard:
+    def test_degrades_to_a_no_op_off_a_terminal(self) -> None:
+        # Off a real terminal ``termios.tcgetattr`` raises ``termios.error``
+        # (not an ``OSError``); the guard must still degrade to a harmless
+        # no-op rather than propagating it out of the ``with`` block.
+        with TerminalGuard():
+            pass
 
 
 class TestShortcut:

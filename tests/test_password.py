@@ -51,6 +51,11 @@ class TestPasswordInput:
         frame = PasswordInput("pw").mask("#").initial("ab").frame()
         assert "##" in frame.plain()
 
+    def test_keyword_constructor_configures_mask_and_initial(self) -> None:
+        # The keyword options mirror the builder methods.
+        frame = PasswordInput("pw", initial="ab", mask="#").frame()
+        assert "##" in frame.plain()
+
     def test_validation_blocks_until_valid(self) -> None:
         outcome = _run(
             PasswordInput("pw").validate(min_len(2)),

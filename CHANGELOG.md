@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Style.remove_modifier` clears one or more attributes from a layered style
+  (the counterpart to `add_modifier`).
+- `TextInput` and `PasswordInput` gained keyword-only constructor options
+  mirroring their fluent setters, so they configure like every other widget.
+- `OutcomeKind` is re-exported from the flat `sparcli` namespace.
+
 ### Changed
 
 - Hide the terminal hardware cursor during in-place redraws (spinner, progress,
@@ -15,6 +23,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `DatePicker` navigation past the representable date range (before year 1 or
+  after year 9999) no longer raises; it clamps to `date.min` / `date.max`.
+- Inline markup no longer swallows a closed bracket that names no known style
+  or attribute (such as `array[0]`); such text is emitted literally.
+- `char_width` no longer raises on an empty or multi-character string.
+- A negative `NumberInput.decimals` setting is clamped to zero instead of
+  raising when the value is formatted.
+- The raw-mode paths in `TerminalGuard` and the external-editor suspension now
+  also catch `termios.error`, so a non-terminal stdin falls back to the
+  documented no-op instead of raising (`termios.error` is not an `OSError`).
 - `TextInput`'s Ctrl-G external editor now runs with raw mode suspended
   (cooked), matching `Textarea` and the Rust original; previously the editor
   launched while the terminal was still in raw mode.
@@ -25,6 +43,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - History files are split into entries on newlines only (like Rust's
   `str::lines`), so an entry containing an exotic line separator is no longer
   split in two.
+
+### Security
+
+- Control characters (C0, DEL and C1, except tab) are stripped from span
+  content and OSC-8 link URLs before they reach the terminal, so untrusted
+  text can no longer inject escape sequences or terminate a hyperlink early.
+- History files are written atomically (temp file plus rename), so a crash or
+  a concurrent writer can no longer truncate the file.
 
 ### Notes
 

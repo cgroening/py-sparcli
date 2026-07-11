@@ -90,11 +90,11 @@ class TextInput:
     """
     A single-line text input prompt.
 
-    Build a prompt with the fluent setters and run it with :meth:`run`. Every
-    setter mutates and returns ``self``, so calls chain. The default matching
-    completes suggestions by prefix as inline ghost text; :meth:`dropdown`
-    switches to a navigable list and :meth:`fuzzy_suggestions` to subsequence
-    matching.
+    Configure a prompt either through the keyword-only constructor options or
+    the matching fluent setters (each mutates and returns ``self``, so calls
+    chain), then run it with :meth:`run`. The default matching completes
+    suggestions by prefix as inline ghost text; :meth:`dropdown` switches to a
+    navigable list and :meth:`fuzzy_suggestions` to subsequence matching.
     """
 
     __slots__ = (
@@ -114,21 +114,40 @@ class TextInput:
         "_editor_command",
     )
 
-    def __init__(self, prompt: str) -> None:
+    def __init__(
+        self,
+        prompt: str,
+        *,
+        initial: str = "",
+        placeholder: str = "",
+        max_chars: int = 0,
+        hide_char_count: bool = False,
+        validator: Validator | None = None,
+        char_filter: CharFilter | None = None,
+        suggestions: Iterable[str] = (),
+        history: Iterable[str] = (),
+        history_app: str | None = None,
+        dropdown: bool = False,
+        fuzzy_suggestions: bool = False,
+        editor: bool = False,
+        editor_command: str | None = None,
+    ) -> None:
         self._prompt: str = prompt
-        self._initial: str = ""
-        self._placeholder: str = ""
-        self._max_chars: int = 0
-        self._hide_char_count: bool = False
-        self._validator: Validator | None = None
-        self._char_filter: CharFilter | None = None
-        self._suggestions: list[str] = []
-        self._history: list[str] = []
-        self._history_app: str | None = None
-        self._dropdown: bool = False
-        self._match_mode: MatchMode = MatchMode.PREFIX
-        self._editor_enabled: bool = False
-        self._editor_command: str | None = None
+        self._initial: str = initial
+        self._placeholder: str = placeholder
+        self._max_chars: int = max_chars
+        self._hide_char_count: bool = hide_char_count
+        self._validator: Validator | None = validator
+        self._char_filter: CharFilter | None = char_filter
+        self._suggestions: list[str] = list(suggestions)
+        self._history: list[str] = list(history)
+        self._history_app: str | None = history_app
+        self._dropdown: bool = dropdown
+        self._match_mode: MatchMode = (
+            MatchMode.SUBSEQUENCE if fuzzy_suggestions else MatchMode.PREFIX
+        )
+        self._editor_enabled: bool = editor or editor_command is not None
+        self._editor_command: str | None = editor_command
 
     def initial(self, value: str) -> TextInput:
         """Sets the initial value and returns ``self``."""

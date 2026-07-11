@@ -79,7 +79,7 @@ class NumberInput:
         self._minimum = minimum
         self._maximum = maximum
         self._step = step
-        self._decimals = decimals
+        self._decimals = max(decimals, 0)
         self._calculator = calculator
 
     def initial(self, value: float) -> NumberInput:
@@ -100,7 +100,7 @@ class NumberInput:
 
     def decimals(self, decimals: int) -> NumberInput:
         """Sets the number of decimal places shown and returns ``self``."""
-        self._decimals = decimals
+        self._decimals = max(decimals, 0)
         return self
 
     def calculator(self) -> NumberInput:

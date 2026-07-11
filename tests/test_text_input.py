@@ -32,6 +32,19 @@ class TestTextInput:
         )
         assert outcome.value == "a"  # pyright: ignore[reportAttributeAccessIssue]
 
+    def test_keyword_constructor_matches_fluent_setters(self) -> None:
+        # The keyword options configure the same state as the builder methods.
+        outcome = _run(
+            TextInput("x", initial="ab", placeholder="type"),
+            [KeyCode.BACKSPACE, KeyCode.ENTER],
+        )
+        assert outcome.value == "a"  # pyright: ignore[reportAttributeAccessIssue]
+
+    def test_keyword_editor_command_enables_editor(self) -> None:
+        prompt = TextInput("x", editor_command="true")
+        assert prompt._editor_enabled is True  # pyright: ignore[reportPrivateUsage]
+        assert prompt._editor_command == "true"  # pyright: ignore[reportPrivateUsage]
+
     def test_editor_runs_with_raw_mode_suspended(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

@@ -61,10 +61,10 @@ class PasswordInput:
     """
     A masked password input prompt.
 
-    Build a prompt with the fluent setters and run it with :meth:`run`. Every
-    setter mutates and returns ``self``, so calls chain. The typed value is
-    displayed as repeated mask glyphs; an empty :meth:`mask` hides the length
-    entirely.
+    Configure a prompt either through the keyword-only constructor options or
+    the matching fluent setters (each mutates and returns ``self``, so calls
+    chain), then run it with :meth:`run`. The typed value is displayed as
+    repeated mask glyphs; an empty :meth:`mask` hides the length entirely.
     """
 
     __slots__ = (
@@ -76,13 +76,22 @@ class PasswordInput:
         "_char_filter",
     )
 
-    def __init__(self, prompt: str) -> None:
+    def __init__(
+        self,
+        prompt: str,
+        *,
+        initial: str = "",
+        mask: str = _DEFAULT_MASK,
+        max_chars: int = 0,
+        validator: Validator | None = None,
+        char_filter: CharFilter | None = None,
+    ) -> None:
         self._prompt: str = prompt
-        self._initial: str = ""
-        self._mask: str = _DEFAULT_MASK
-        self._max_chars: int = 0
-        self._validator: Validator | None = None
-        self._char_filter: CharFilter | None = None
+        self._initial: str = initial
+        self._mask: str = mask
+        self._max_chars: int = max_chars
+        self._validator: Validator | None = validator
+        self._char_filter: CharFilter | None = char_filter
 
     def initial(self, value: str) -> PasswordInput:
         """Sets an initial value (mainly useful for previews)."""

@@ -4,14 +4,27 @@ from __future__ import annotations
 
 import io
 
+import pytest
+
 from sparcli.core.color import Color
-from sparcli.core.markup import parse
+from sparcli.core.markup import markup_print, markup_println, parse
 from sparcli.core.render import Rendered, write_rendered
 from sparcli.core.style import Attribute, Style
-from sparcli.core.terminal import ColorSupport
+from sparcli.core.terminal import (
+    ColorSupport,
+    color_support,
+    is_input_tty,
+    is_output_tty,
+)
 from sparcli.core.text import Line, Span
 from sparcli.core.theme import Theme, set_theme, theme
-from sparcli.core.width import strip_ansi, truncate, visible_width, wrap
+from sparcli.core.width import (
+    char_width,
+    strip_ansi,
+    truncate,
+    visible_width,
+    wrap,
+)
 
 
 def render_to_string(rendered: Rendered, support: ColorSupport) -> str:
@@ -51,6 +64,11 @@ class TestStyle:
         assert merged.attrs.contains(Attribute.BOLD)
         assert merged.attrs.contains(Attribute.ITALIC)
 
+    def test_remove_modifier_clears_only_the_named_attribute(self) -> None:
+        style = Style.new().bold().italic().remove_modifier(Attribute.BOLD)
+        assert not style.attrs.contains(Attribute.BOLD)
+        assert style.attrs.contains(Attribute.ITALIC)
+
 
 class TestWidth:
     def test_visible_width_ignores_ansi(self) -> None:
@@ -74,6 +92,14 @@ class TestWidth:
         assert wrap("a\tb\tc", 10) == ["a b c"]
         assert wrap("a   b", 10) == ["a b"]
 
+    def test_char_width_handles_empty_and_multichar_input(self) -> None:
+        # The single-character contract stays intact, but degenerate input
+        # never raises: empty is zero and a longer string sums its cells.
+        assert char_width("") == 0
+        assert char_width("a") == 1
+        assert char_width("中") == 2
+        assert char_width("ab中") == 4
+
 
 class TestRender:
     def test_plain_text_has_no_escapes(self) -> None:
@@ -93,6 +119,31 @@ class TestRender:
         output = render_to_string(Rendered([Line([span])]), ColorSupport.ANSI16)
         assert "https://example.com" in output
 
+    def test_control_chars_are_stripped_from_content(self) -> None:
+        # A raw ESC / BEL / CR in span content must not reach the terminal.
+        # An unstyled span emits no escapes at all, so the injected SGR is
+        # neutralised: its ESC is gone and "[31m" survives as inert text.
+        span = Span.raw("a\x1b[31mb\x07\rc")
+        output = render_to_string(
+            Rendered([Line([span])]), ColorSupport.TRUECOLOR
+        )
+        assert "\x1b" not in output
+        assert "\x07" not in output
+        assert "\r" not in output
+        assert output == "a[31mbc\n"
+
+    def test_tab_survives_sanitization(self) -> None:
+        output = render_to_string(
+            Rendered([Line([Span.raw("a\tb")])]), ColorSupport.NONE
+        )
+        assert output == "a\tb\n"
+
+    def test_link_injection_is_neutralized(self) -> None:
+        # A crafted URL cannot terminate the OSC-8 sequence and inject escapes.
+        span = Span.raw("x").with_link("http://e\x1b\\\x1b]8;;evil")
+        output = render_to_string(Rendered([Line([span])]), ColorSupport.ANSI16)
+        assert "\x1b\\\x1b]8;;evil" not in output
+
 
 class TestMarkup:
     def test_bold_tag_applies_attribute(self) -> None:
@@ -104,6 +155,86 @@ class TestMarkup:
     def test_unknown_bracket_is_literal(self) -> None:
         text = parse("a [b")
         assert text.lines[0].plain() == "a [b"
+
+    def test_closed_unknown_tag_is_literal(self) -> None:
+        # A closed bracket naming no style/attribute is content, not markup.
+        assert parse("array[0]").lines[0].plain() == "array[0]"
+        assert parse("[hello world]").lines[0].plain() == "[hello world]"
+
+    def test_recognized_tag_still_applies_after_fix(self) -> None:
+        text = parse("[red]x[/] array[0]")
+        assert text.lines[0].plain() == "x array[0]"
+        assert text.lines[0].spans[0].style.fg == Color.RED
+
+    def test_markup_print_writes_the_text(
+        self,
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("NO_COLOR", "1")
+        markup_print("[bold]hi[/]")
+        assert capsys.readouterr().out == "hi\n"
+
+    def test_markup_println_appends_a_blank_line(
+        self,
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("NO_COLOR", "1")
+        markup_println("hi")
+        assert capsys.readouterr().out == "hi\n\n"
+
+
+class TestTerminalColorSupport:
+    @staticmethod
+    def _clear_env(monkeypatch: pytest.MonkeyPatch) -> None:
+        for key in (
+            "NO_COLOR",
+            "CLICOLOR_FORCE",
+            "COLORTERM",
+            "SPARCLI_NO_TTY",
+        ):
+            monkeypatch.delenv(key, raising=False)
+
+    def test_no_color_forces_none(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._clear_env(monkeypatch)
+        monkeypatch.setenv("NO_COLOR", "1")
+        monkeypatch.setenv("CLICOLOR_FORCE", "1")
+        monkeypatch.setenv("COLORTERM", "truecolor")
+        assert color_support() is ColorSupport.NONE
+
+    def test_clicolor_force_with_truecolor(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._clear_env(monkeypatch)
+        monkeypatch.setenv("CLICOLOR_FORCE", "1")
+        monkeypatch.setenv("COLORTERM", "truecolor")
+        assert color_support() is ColorSupport.TRUECOLOR
+
+    def test_clicolor_force_without_colorterm_is_ansi16(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._clear_env(monkeypatch)
+        monkeypatch.setenv("CLICOLOR_FORCE", "1")
+        assert color_support() is ColorSupport.ANSI16
+
+    def test_non_tty_without_force_is_none(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._clear_env(monkeypatch)
+        monkeypatch.setenv("SPARCLI_NO_TTY", "1")
+        monkeypatch.setenv("COLORTERM", "truecolor")
+        assert color_support() is ColorSupport.NONE
+
+    def test_no_tty_override_reports_non_tty(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._clear_env(monkeypatch)
+        monkeypatch.setenv("SPARCLI_NO_TTY", "1")
+        assert is_output_tty() is False
+        assert is_input_tty() is False
 
 
 class TestTheme:

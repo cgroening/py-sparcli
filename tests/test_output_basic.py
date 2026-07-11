@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from sparcli.core.border import BorderType
-from sparcli.core.geometry import Align, VAlign
+from sparcli.core.geometry import Align, Edges, VAlign
 from sparcli.core.render import Rendered
 from sparcli.core.style import Attribute
 from sparcli.core.text import Line
-from sparcli.core.theme import theme
+from sparcli.core.theme import Theme, set_theme, theme
+from sparcli.output.alert import Alert, AlertKind
 from sparcli.output.badge import Badge
 from sparcli.output.columns import Columns
+from sparcli.output.compose import align, pad, vstack
 from sparcli.output.kv import KeyValue
 from sparcli.output.rule import Rule
 
@@ -17,6 +19,56 @@ from sparcli.output.rule import Rule
 def _plain(rendered: Rendered) -> list[str]:
     """Returns the plain text of each rendered line."""
     return [line.plain() for line in rendered.lines]
+
+
+def _joined(rendered: Rendered) -> str:
+    """Returns the plain text of all lines joined by newlines."""
+    return "\n".join(line.plain() for line in rendered.lines)
+
+
+class TestAlert:
+    def test_success_alert_shows_content_and_unicode_icon(self) -> None:
+        rendered = Alert.success("Done").render(40)
+        joined = _joined(rendered)
+        assert "Done" in joined
+        icon = "✔" if theme().unicode else "+"
+        assert icon in joined
+
+    def test_convenience_constructors_map_to_kinds(self) -> None:
+        assert Alert.info("x")._kind is AlertKind.INFO  # pyright: ignore[reportPrivateUsage]
+        assert Alert.debug("x")._kind is AlertKind.DEBUG  # pyright: ignore[reportPrivateUsage]
+        assert Alert.warning("x")._kind is AlertKind.WARNING  # pyright: ignore[reportPrivateUsage]
+        assert Alert.error("x")._kind is AlertKind.ERROR  # pyright: ignore[reportPrivateUsage]
+        assert Alert.success("x")._kind is AlertKind.SUCCESS  # pyright: ignore[reportPrivateUsage]
+
+    def test_ascii_icon_when_theme_is_not_unicode(self) -> None:
+        original = theme()
+        try:
+            set_theme(Theme(unicode=False))
+            rendered = Alert.error("boom").render(30)
+            assert "x boom" in _joined(rendered)
+        finally:
+            set_theme(original)
+
+
+class TestCompose:
+    def test_align_right_pads_on_the_left(self) -> None:
+        aligned = align(Rendered([Line.raw("hi")]), 6, Align.RIGHT)
+        assert aligned.lines[0].plain() == "    hi"
+
+    def test_pad_adds_top_bottom_and_left_edges(self) -> None:
+        padded = pad(
+            Rendered([Line.raw("hi")]),
+            Edges(top=1, bottom=1, left=2),
+        )
+        assert padded.height() == 3
+        assert padded.lines[1].plain() == "  hi"
+
+    def test_vstack_inserts_blank_gap_lines(self) -> None:
+        stacked = vstack(
+            [Rendered([Line.raw("a")]), Rendered([Line.raw("b")])], gap=1
+        )
+        assert _plain(stacked) == ["a", "", "b"]
 
 
 class TestBadge:

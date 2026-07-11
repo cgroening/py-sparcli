@@ -30,6 +30,15 @@ _RESET = f"{_ESC}[0m"
 _OSC8_START = f"{_ESC}]8;;"
 _OSC8_END = f"{_ESC}\\"
 
+# Control characters (C0, DEL and C1) minus tab. Emitting these verbatim lets
+# untrusted content inject escape sequences or corrupt the layout, so they are
+# stripped just before text reaches the terminal.
+_CONTROL_TABLE: dict[int, None] = {
+    code: None
+    for code in (*range(0x00, 0x20), 0x7F, *range(0x80, 0xA0))
+    if code != 0x09
+}
+
 # SGR parameter for each attribute flag.
 _ATTRIBUTE_SGR: list[tuple[Attribute, str]] = [
     (Attribute.BOLD, "1"),
@@ -117,7 +126,7 @@ class Rendered(Renderable):
         """Returns a rendered block from a :class:`Text`'s lines."""
         return cls(list(text.lines))
 
-    def render(self, max_width: int) -> Rendered:  # noqa: ARG002
+    def render(self, max_width: int) -> Rendered:
         """Returns a copy of this block, ignoring ``max_width``."""
         return Rendered(list(self.lines))
 
@@ -168,14 +177,20 @@ def write_line(
 
 def _render_span(span: Span, support: ColorSupport) -> str:
     """Returns the escaped string for a single span at a support level."""
+    content = _sanitize(span.content)
     if support is ColorSupport.NONE:
-        return span.content
+        return content
     codes = _sgr_codes(span.style, support)
-    content = _wrap_link(span.content, span.link)
+    content = _wrap_link(content, span.link)
     if not codes:
         return content
     prefix = f"{_ESC}[{';'.join(codes)}m"
     return f"{prefix}{content}{_RESET}"
+
+
+def _sanitize(text: str) -> str:
+    """Strips control characters (except tab) that would corrupt output."""
+    return text.translate(_CONTROL_TABLE)
 
 
 def _sgr_codes(style: Style, support: ColorSupport) -> list[str]:
@@ -219,7 +234,12 @@ def _ansi16_sgr(index: int, *, background: bool) -> str:
 
 
 def _wrap_link(content: str, link: str | None) -> str:
-    """Wraps ``content`` in an OSC-8 hyperlink when a link is present."""
+    """Wraps ``content`` in an OSC-8 hyperlink when a link is present.
+
+    The URL is scrubbed of control characters so a crafted link cannot
+    terminate the OSC-8 sequence early and inject its own escapes.
+    """
     if link is None:
         return content
-    return f"{_OSC8_START}{link}{_OSC8_END}{content}{_OSC8_START}{_OSC8_END}"
+    safe = _sanitize(link)
+    return f"{_OSC8_START}{safe}{_OSC8_END}{content}{_OSC8_START}{_OSC8_END}"

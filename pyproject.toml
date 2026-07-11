@@ -57,7 +57,7 @@ target-version = "py312"
 quote-style = "double"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "N", "B", "UP", "S"]
+select = ["E", "F", "W", "I", "N", "B", "UP", "S", "RUF100"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
@@ -65,5 +65,5 @@ ignore = ["E501"]
 "examples/*" = ["S101"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["sparcli", "tests"]
 addopts = "--doctest-modules --ignore=examples"

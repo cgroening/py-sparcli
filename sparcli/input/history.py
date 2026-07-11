@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import os
+import tempfile
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -105,9 +106,36 @@ class History:
             return
         try:
             self._path.parent.mkdir(parents=True, exist_ok=True)
-            self._path.write_text("\n".join(self._entries), encoding="utf-8")
+            _atomic_write(self._path, "\n".join(self._entries))
         except OSError as error:
             logger.warning("could not write history file: %s", error)
+
+
+def _atomic_write(path: Path, content: str) -> None:
+    """Writes ``content`` to ``path`` atomically via a temp file and rename.
+
+    A crash or a concurrent writer can never leave a half-written history
+    file: the content is written to a sibling temp file and then renamed over
+    the target in a single step.
+    """
+    handle, temp = tempfile.mkstemp(
+        dir=path.parent, prefix=f"{path.name}.", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as stream:
+            stream.write(content)
+        os.replace(temp, path)
+    except OSError:
+        _remove_quietly(temp)
+        raise
+
+
+def _remove_quietly(path: str) -> None:
+    """Removes ``path``, ignoring a missing file."""
+    try:
+        os.unlink(path)
+    except FileNotFoundError:
+        pass
 
 
 def _split_lines(text: str) -> list[str]:

@@ -36,8 +36,11 @@ def char_width(char: str) -> int:
     -------
     int
         ``0`` for combining or control characters, ``2`` for wide East Asian
-        glyphs, otherwise ``1``.
+        glyphs, otherwise ``1``. An empty string is ``0`` and a multi-character
+        string sums its characters, so the function never raises on bad input.
     """
+    if len(char) != 1:
+        return sum(char_width(part) for part in char)
     if char == "\x00" or unicodedata.combining(char):
         return 0
     category = unicodedata.category(char)

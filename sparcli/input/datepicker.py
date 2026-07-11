@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import calendar
 from collections.abc import Iterable
-from datetime import date, timedelta
+from datetime import MAXYEAR, MINYEAR, date, timedelta
 
 from sparcli.core.render import Rendered
 from sparcli.core.style import Style
@@ -263,13 +263,13 @@ def _apply_nav(current: date, key: KeyPress) -> date:
     """Returns the selection shifted by a navigation key press."""
     code = key.code
     if code == KeyCode.LEFT:
-        return current - timedelta(days=1)
+        return _shift_days(current, -1)
     if code == KeyCode.RIGHT:
-        return current + timedelta(days=1)
+        return _shift_days(current, 1)
     if code == KeyCode.UP:
-        return current - timedelta(days=DAYS_PER_WEEK)
+        return _shift_days(current, -DAYS_PER_WEEK)
     if code == KeyCode.DOWN:
-        return current + timedelta(days=DAYS_PER_WEEK)
+        return _shift_days(current, DAYS_PER_WEEK)
     if code == KeyCode.PAGE_UP:
         return _add_months(current, -MONTHS_PER_YEAR if key.shift else -1)
     if code == KeyCode.PAGE_DOWN:
@@ -277,10 +277,22 @@ def _apply_nav(current: date, key: KeyPress) -> date:
     return current
 
 
+def _shift_days(current: date, delta: int) -> date:
+    """Returns ``current`` shifted by ``delta`` days, clamped to the range."""
+    try:
+        return current + timedelta(days=delta)
+    except OverflowError:
+        return date.max if delta > 0 else date.min
+
+
 def _add_months(value: date, delta: int) -> date:
     """Returns ``value`` shifted by ``delta`` months, clamping the day."""
     zero_based = value.month - 1 + delta
     year = value.year + zero_based // MONTHS_PER_YEAR
     month = zero_based % MONTHS_PER_YEAR + 1
+    if year < MINYEAR:
+        return date.min
+    if year > MAXYEAR:
+        return date.max
     _, last = calendar.monthrange(year, month)
     return date(year, month, min(value.day, last))
