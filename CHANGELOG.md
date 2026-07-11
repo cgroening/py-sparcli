@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Hide the terminal hardware cursor during in-place redraws (spinner, progress,
+  multi-progress, live) and interactive prompts, and restore it reliably on
+  finish, on prompt exit and at interpreter exit.
+
 ## [0.1.0] – 2026-07-10
 
 ### Added

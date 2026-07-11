@@ -16,6 +16,7 @@ from __future__ import annotations
 import io
 import sys
 
+from sparcli.core import cursor
 from sparcli.core.render import Renderable, Rendered, write_line, write_rendered
 from sparcli.core.terminal import color_support, is_output_tty
 
@@ -48,6 +49,7 @@ class InPlace:
         if not self._interactive:
             self._last_frame = rendered
             return
+        cursor.hide()
         buffer = io.StringIO()
         self._rewind(buffer)
         support = color_support()
@@ -73,6 +75,7 @@ class InPlace:
         elif self._last_frame is not None:
             write_rendered(sys.stdout, self._last_frame, color_support())
             sys.stdout.flush()
+        cursor.show()
         self._last_height = 0
         self._last_frame = None
 
@@ -85,6 +88,7 @@ class InPlace:
         self._rewind(buffer)
         sys.stdout.write(buffer.getvalue())
         sys.stdout.flush()
+        cursor.show()
         self._last_height = 0
 
     def _rewind(self, buffer: io.StringIO) -> None:

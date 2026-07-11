@@ -17,6 +17,8 @@ import logging
 import sys
 from types import TracebackType
 
+from sparcli.core import cursor
+
 logger = logging.getLogger(__name__)
 
 _ENABLE_PASTE = "\x1b[?2004h"
@@ -48,10 +50,11 @@ class TerminalGuard:
         self._restore()
 
     def _enable(self) -> None:
-        """Puts the terminal into raw mode when possible."""
+        """Puts the terminal into raw mode and hides the cursor."""
         if sys.platform != "win32":
             self._enable_raw()
         self._enable_paste()
+        cursor.hide()
 
     def _enable_raw(self) -> None:
         """Enables POSIX raw mode, saving the previous terminal settings."""
@@ -76,7 +79,8 @@ class TerminalGuard:
             logger.warning("could not enable bracketed paste: %s", error)
 
     def _restore(self) -> None:
-        """Restores cooked mode and disables bracketed paste."""
+        """Restores cooked mode, disables bracketed paste, shows the cursor."""
+        cursor.show()
         if self._paste:
             self._disable_paste()
         if self._saved is None:
