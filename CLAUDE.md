@@ -24,6 +24,14 @@ rich/textual/prompt_toolkit, minimal footprint.
 - **Rust original is the SSOT for behavior:** `/Users/cgroening/Developer/Rust/
   libs/sparcli`. For behavior questions, check there and preserve parity.
 
+## Rust parity (mandatory)
+
+- The Rust version lives at `/Users/cgroening/Developer/Rust/libs/sparcli`.
+- **On every change, check whether the same change also has to be made in the
+  Rust version** (behavior, API, docs, examples) to keep both in parity.
+- When such a change might be needed, **ask the user** whether it should be
+  carried over to the Rust version instead of deciding silently.
+
 ## Distribution & import
 
 - PyPI distribution name: **`py-sparcli`** (the name `sparcli` is taken).
