@@ -1,5 +1,7 @@
 # sparcli
 
+[![PyPI version](https://img.shields.io/pypi/v/py-sparcli.svg)](https://pypi.org/project/py-sparcli/) [![Python versions](https://img.shields.io/pypi/pyversions/py-sparcli.svg)](https://pypi.org/project/py-sparcli/) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) [![Typed](https://img.shields.io/badge/typed-yes-blue.svg)](https://peps.python.org/pep-0561/)
+
 Styled CLI output and interactive input widgets for Python, built directly on ANSI escape codes with no third-party dependencies.
 
 sparcli is a native Python port of the Rust library of the same name. It renders styled text, tables, panels, trees and progress bars, and drives single-input prompts (text, password, number, confirm, select, fuzzy, date and more) – all from the standard library alone. It is meant for small, lightweight CLI tools: a single accent color, muted defaults, rounded borders, and graceful behavior under `NO_COLOR` or when output is piped. Heavy, full-screen retained TUIs are out of scope.
@@ -140,7 +142,11 @@ active = theme()
 
 ## Output components
 
-The `output_readme.py` example composes a hero panel, a three-column dashboard and a progress bar. Captured with `NO_COLOR=1` it renders as plain text:
+The `output_readme.py` example composes a hero panel, a three-column dashboard and a progress bar:
+
+![sparcli output widgets: a hero panel, a status table, a numbered list, a file tree, a key-value block, colored status badges and a progress bar](https://raw.githubusercontent.com/cgroening/py-sparcli/main/images/screenshot-1.png)
+
+Captured with `NO_COLOR=1` the same collage renders as plain text:
 
 ```text
 ╭─────────────────────────────────  sparcli  ──────────────────────────────────╮
@@ -165,6 +171,10 @@ Building [███████████████████████�
 ## Input widgets
 
 The `prompt_readme.py` example stacks the static opening frame of every prompt into a single dashboard, produced entirely through `frame()` with no TTY:
+
+![sparcli input widgets: confirm, text, password, number, textarea, single and multi select, fuzzy select and a calendar date picker](https://raw.githubusercontent.com/cgroening/py-sparcli/main/images/screenshot-2.png)
+
+The same dashboard as plain text:
 
 ```text
 ╭─────────────────────  sparcli - input widgets  ─────────────────────╮
@@ -208,7 +218,7 @@ sparcli honors the common terminal environment variables:
 - `CLICOLOR_FORCE` forces color even when output is not a terminal.
 - `SPARCLI_NO_TTY` forces "no terminal" behavior, used for deterministic captures and tests.
 
-When stdout is not a TTY (a pipe or a file), color is disabled automatically unless `CLICOLOR_FORCE` is set, and the in-place engines print only their final frame. Every showcase in this README is real captured output, produced with `NO_COLOR=1 SPARCLI_NO_TTY=1`.
+When stdout is not a TTY (a pipe or a file), color is disabled automatically unless `CLICOLOR_FORCE` is set, and the in-place engines print only their final frame. Every text showcase in this README is real captured output, produced with `NO_COLOR=1 SPARCLI_NO_TTY=1`; the two screenshots are the same collages captured in color.
 
 ## Documentation
 

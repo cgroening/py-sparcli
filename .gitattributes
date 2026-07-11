@@ -1,0 +1,29 @@
+# Normalize line endings: LF in the repository, auto on checkout.
+* text=auto eol=lf
+
+# Explicitly text.
+*.py    text
+*.pyi   text
+*.md    text
+*.toml  text
+*.cfg   text
+*.txt   text
+*.yml   text
+*.yaml  text
+
+# Binary assets (add screenshots/GIFs here as they are introduced).
+*.png   binary
+*.gif   binary
+*.jpg   binary
+*.svg   text
+
+# Keep source-distribution / `git archive` tarballs lean: development-only
+# files are excluded from exports.
+.editorconfig    export-ignore
+.gitattributes   export-ignore
+.gitignore       export-ignore
+.github/         export-ignore
+CLAUDE.md        export-ignore
+TODO.md          export-ignore
+tests/           export-ignore
+examples/        export-ignore
