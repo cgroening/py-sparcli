@@ -4,6 +4,12 @@ Styled CLI output and interactive input widgets for Python, built directly on AN
 
 sparcli is a native Python port of the Rust library of the same name. It renders styled text, tables, panels, trees and progress bars, and drives single-input prompts (text, password, number, confirm, select, fuzzy, date and more) – all from the standard library alone. It is meant for small, lightweight CLI tools: a single accent color, muted defaults, rounded borders, and graceful behavior under `NO_COLOR` or when output is piped. Heavy, full-screen retained TUIs are out of scope.
 
+
+![sparcli output widgets](https://raw.githubusercontent.com/cgroening/py-sparcli/main/images/screenshot-1.png)
+
+![sparcli input widgets](https://raw.githubusercontent.com/cgroening/py-sparcli/main/images/screenshot-2.png)
+
+
 ## Highlights
 
 - Output: styled text, inline markup, tables (colspan, rowspan, striping, wrapping, titles), panels, alerts, rules, lists, trees, key-value lists, badges, progress bars, spinners, multi-progress, diffs, columns, live in-place display, pager, and the composition helpers `align`, `pad` and `vstack`.
