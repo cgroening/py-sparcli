@@ -31,6 +31,11 @@ rich/textual/prompt_toolkit, minimal footprint.
   Rust version** (behavior, API, docs, examples) to keep both in parity.
 - When such a change might be needed, **ask the user** whether it should be
   carried over to the Rust version instead of deciding silently.
+- **Known intentional divergence:** `DatePicker`'s initial "today" uses the
+  **local** date here (`datetime.date.today`), while the Rust version uses
+  **UTC** (it has no local-time API without a dependency, and both stay
+  dependency-free). Near midnight the default day can differ by one between the
+  two ports. Do not "fix" this into parity without user sign-off.
 
 ## Distribution & import
 

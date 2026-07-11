@@ -6,6 +6,7 @@ from sparcli.core.border import BorderType
 from sparcli.core.render import Rendered
 from sparcli.output.diff import MAX_DIFF_LINES, Diff
 from sparcli.output.list import List, Marker, _to_alpha, _to_roman
+from sparcli.output.panel import Panel
 from sparcli.output.tree import Tree, TreeNode
 
 
@@ -171,3 +172,31 @@ class TestDiff:
         assert len(deletions) == MAX_DIFF_LINES + 1
         assert "+ same" in lines
         assert all(not line.startswith("  ") for line in lines)
+
+
+class TestPanel:
+    def test_frames_content_with_border(self) -> None:
+        lines = lines_of(Panel("hi").border(BorderType.SINGLE).render(40))
+        assert len(lines) == 3
+        assert lines[0].startswith("┌")
+        assert "hi" in lines[1]
+
+    def test_fixed_width_is_clamped_to_max_width(self) -> None:
+        lines = lines_of(
+            Panel("hi").border(BorderType.SINGLE).width(200).render(80)
+        )
+        assert len(lines[0]) == 80
+        assert len(lines[2]) == 80
+
+    def test_overflowing_content_shrinks_the_frame(self) -> None:
+        panel = Panel("abcdefghijklmnopqrstuvwxyz").border(BorderType.SINGLE)
+        lines = lines_of(panel.render(12))
+        assert len(lines[0]) == 12
+
+    def test_overlong_title_is_truncated_not_widened(self) -> None:
+        panel = (
+            Panel("x").border(BorderType.SINGLE).title("A very long title here")
+        )
+        lines = lines_of(panel.render(20))
+        assert len(lines[0]) <= 20
+        assert "…" in lines[0]

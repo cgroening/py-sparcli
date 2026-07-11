@@ -9,20 +9,30 @@ string through a temp file. The editor command comes from an explicit override,
 then ``$VISUAL``, then ``$EDITOR``, then a platform default (``vi`` on POSIX,
 ``notepad`` on Windows). The command is split on whitespace and spawned as an
 argument list - never through a shell - so no input is ever interpreted by one.
+:func:`suspended_raw_mode` cooks the terminal around such a spawn, so the child
+editor sees a canonical terminal rather than the prompt's raw mode.
 """
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import subprocess
 import sys
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
+from typing import Any
 
 from sparcli.errors import ConfigError, TerminalError
 
 logger = logging.getLogger(__name__)
+
+# Indices into a termios attribute list ``[iflag, oflag, cflag, lflag, ...]``.
+_IFLAG = 0
+_OFLAG = 1
+_LFLAG = 3
 
 
 def edit_file(command: str | None, path: Path) -> None:
@@ -116,3 +126,64 @@ def _remove_quietly(path: Path) -> None:
         path.unlink(missing_ok=True)
     except OSError as error:
         logger.debug("could not remove temp file %s: %s", path, error)
+
+
+@contextlib.contextmanager
+def suspended_raw_mode() -> Generator[None]:
+    """
+    Cooks the terminal for the duration of the ``with`` block.
+
+    Restores canonical input, echo and signal handling so a spawned child
+    process (such as ``$EDITOR``) sees a normal terminal, then reinstates the
+    prompt's raw mode on exit. A no-op off POSIX or when the terminal state
+    cannot be read.
+
+    Examples
+    --------
+    >>> with suspended_raw_mode():
+    ...     pass
+    """
+    saved = _suspend_raw()
+    try:
+        yield
+    finally:
+        _resume_raw(saved)
+
+
+def _suspend_raw() -> tuple[int, list[Any]] | None:
+    """Switches the terminal to cooked mode, returning the saved state."""
+    if sys.platform == "win32":
+        return None
+    try:
+        import termios  # noqa: PLC0415
+
+        fd = sys.stdin.fileno()
+        saved = termios.tcgetattr(fd)
+        termios.tcsetattr(fd, termios.TCSADRAIN, _cooked_mode(saved))
+    except (OSError, ValueError, ImportError):
+        return None
+    return (fd, saved)
+
+
+def _cooked_mode(mode: list[Any]) -> list[Any]:
+    """Returns a copy of ``mode`` with canonical input and echo enabled."""
+    import termios  # noqa: PLC0415
+
+    cooked = list(mode)
+    cooked[_IFLAG] |= termios.ICRNL
+    cooked[_OFLAG] |= termios.OPOST
+    cooked[_LFLAG] |= termios.ICANON | termios.ECHO | termios.ISIG
+    return cooked
+
+
+def _resume_raw(saved: tuple[int, list[Any]] | None) -> None:
+    """Restores the terminal state captured by :func:`_suspend_raw`."""
+    if saved is None:
+        return
+    fd, mode = saved
+    try:
+        import termios  # noqa: PLC0415
+
+        termios.tcsetattr(fd, termios.TCSADRAIN, mode)
+    except (OSError, ValueError, ImportError):
+        logger.debug("could not restore raw mode after the editor")

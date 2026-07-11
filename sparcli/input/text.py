@@ -26,7 +26,7 @@ from sparcli.core.terminal import is_input_tty
 from sparcli.core.text import Line, Span
 from sparcli.core.theme import Theme, theme
 from sparcli.errors import NoTerminalError, SparcliError
-from sparcli.input.editor import edit_text
+from sparcli.input.editor import edit_text, suspended_raw_mode
 from sparcli.input.event import (
     EventKind,
     EventSource,
@@ -471,7 +471,8 @@ class TextInput:
     def _edit_value(self, value: str) -> str | None:
         """Round-trips ``value`` through the editor, swallowing failures."""
         try:
-            return edit_text(self._editor_command, value, ".txt")
+            with suspended_raw_mode():
+                return edit_text(self._editor_command, value, ".txt")
         except SparcliError as error:
             logger.debug("could not edit value: %s", error)
             return None

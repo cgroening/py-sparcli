@@ -162,7 +162,7 @@ def _wrap_paragraph(text: str, width: int) -> list[str]:
     lines: list[str] = []
     current = ""
     current_width = 0
-    for word in text.split(" "):
+    for word in text.split():
         word_width = visible_width(word)
         gap = 1 if current else 0
         if current and current_width + gap + word_width > width:

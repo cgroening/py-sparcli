@@ -50,6 +50,10 @@ def pad(
     """
     Surrounds ``rendered`` with box-model spacing.
 
+    A content line is only padded up to the block width when a right margin
+    must align; with no right margin it is kept as-is, so shorter lines stay
+    ragged instead of gaining trailing spaces.
+
     Parameters
     ----------
     rendered : Rendered
@@ -74,8 +78,8 @@ def pad(
         if edges.left:
             spans.append(space_span(edges.left, style))
         spans.extend(line.spans)
-        gap = inner_width - line.width() + edges.right
-        if gap > 0:
+        if edges.right:
+            gap = inner_width - line.width() + edges.right
             spans.append(space_span(gap, style))
         lines.append(Line(spans))
     for _ in range(edges.bottom):

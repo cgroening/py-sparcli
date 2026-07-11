@@ -16,9 +16,7 @@ cursor on the caret's line that is dropped on the final frame.
 from __future__ import annotations
 
 import logging
-import sys
 from collections.abc import Callable
-from typing import Any
 
 from sparcli.core.render import Rendered
 from sparcli.core.style import Style
@@ -26,7 +24,7 @@ from sparcli.core.terminal import is_input_tty
 from sparcli.core.text import Line
 from sparcli.core.theme import theme
 from sparcli.errors import NoTerminalError, SparcliError
-from sparcli.input.editor import edit_text
+from sparcli.input.editor import edit_text, suspended_raw_mode
 from sparcli.input.event import (
     EventKind,
     EventSource,
@@ -53,11 +51,6 @@ _EDITOR_SUFFIX = ".md"
 _SUBMIT_KEY = "d"
 # Ctrl-letter that opens the external editor.
 _EDITOR_KEY = "g"
-
-# Indices into a termios attribute list ``[iflag, oflag, cflag, lflag, ...]``.
-_IFLAG = 0
-_OFLAG = 1
-_LFLAG = 3
 
 # Ctrl-letter editing operations shared with the single-line text input.
 _CTRL_OPS: dict[str, Callable[[LineEditor], None]] = {
@@ -241,50 +234,9 @@ def _apply_edit(editor: LineEditor, key: KeyPress) -> None:
 
 def _edit_externally(command: str | None, text: str) -> str | None:
     """Edits ``text`` externally with raw mode suspended; ``None`` on error."""
-    saved = _suspend_raw()
     try:
-        return edit_text(command, text, _EDITOR_SUFFIX)
+        with suspended_raw_mode():
+            return edit_text(command, text, _EDITOR_SUFFIX)
     except SparcliError as error:
         logger.debug("external editor failed: %s", error)
         return None
-    finally:
-        _resume_raw(saved)
-
-
-def _suspend_raw() -> tuple[int, list[Any]] | None:
-    """Switches the terminal to cooked mode, returning the saved state."""
-    if sys.platform == "win32":
-        return None
-    try:
-        import termios  # noqa: PLC0415
-
-        fd = sys.stdin.fileno()
-        saved = termios.tcgetattr(fd)
-        termios.tcsetattr(fd, termios.TCSADRAIN, _cooked_mode(saved))
-    except (OSError, ValueError, ImportError):
-        return None
-    return (fd, saved)
-
-
-def _cooked_mode(mode: list[Any]) -> list[Any]:
-    """Returns a copy of ``mode`` with canonical input and echo enabled."""
-    import termios  # noqa: PLC0415
-
-    cooked = list(mode)
-    cooked[_IFLAG] |= termios.ICRNL
-    cooked[_OFLAG] |= termios.OPOST
-    cooked[_LFLAG] |= termios.ICANON | termios.ECHO | termios.ISIG
-    return cooked
-
-
-def _resume_raw(saved: tuple[int, list[Any]] | None) -> None:
-    """Restores the terminal state captured by :func:`_suspend_raw`."""
-    if saved is None:
-        return
-    fd, mode = saved
-    try:
-        import termios  # noqa: PLC0415
-
-        termios.tcsetattr(fd, termios.TCSADRAIN, mode)
-    except (OSError, ValueError, ImportError):
-        logger.debug("could not restore raw mode after the editor")

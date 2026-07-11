@@ -13,6 +13,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   multi-progress, live) and interactive prompts, and restore it reliably on
   finish, on prompt exit and at interpreter exit.
 
+### Fixed
+
+- `TextInput`'s Ctrl-G external editor now runs with raw mode suspended
+  (cooked), matching `Textarea` and the Rust original; previously the editor
+  launched while the terminal was still in raw mode.
+- `KeyValue` rows are no longer padded with trailing spaces when there is no
+  right margin; shorter rows stay ragged, matching the Rust original.
+- Word wrapping splits on runs of whitespace (tabs, repeated spaces), matching
+  Rust's `split_whitespace`, instead of on a single space only.
+- History files are split into entries on newlines only (like Rust's
+  `str::lines`), so an entry containing an exotic line separator is no longer
+  split in two.
+
+### Notes
+
+- `DatePicker`'s initial "today" uses the local date here, while the Rust
+  original uses UTC (it stays dependency-free). This one-point divergence is
+  intentional; near midnight the default day can differ by one between the two
+  ports.
+
 ## [0.1.0] – 2026-07-10
 
 ### Added

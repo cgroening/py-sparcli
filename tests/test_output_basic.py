@@ -99,6 +99,14 @@ class TestKeyValue:
         assert len(lines) == 3
         assert lines[1].strip() == ""
 
+    def test_short_rows_have_no_trailing_padding(self) -> None:
+        # With no right margin, a shorter row stays ragged instead of being
+        # padded up to the widest row (matching the Rust original).
+        kv = KeyValue().add("k", "x").add("k", "a much longer value")
+        lines = _plain(kv.render(40))
+        assert lines[0] == "k  x"
+        assert not lines[0].endswith(" ")
+
 
 class TestColumns:
     def test_places_blocks_side_by_side(self) -> None:

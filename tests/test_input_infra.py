@@ -282,6 +282,16 @@ class TestHistory:
         loaded.load()
         assert loaded.entries() == ["one", "two"]
 
+    def test_load_splits_only_on_newlines(self, tmp_path: Path) -> None:
+        # Loading splits like Rust's str::lines (on newlines only), so an entry
+        # containing an exotic line separator is not wrongly split in two.
+        path = tmp_path / "history"
+        path.write_text("a\x85b\nc", encoding="utf-8")
+        history = History()
+        history._path = path  # pyright: ignore[reportPrivateUsage]
+        history.load()
+        assert history.entries() == ["a\x85b", "c"]
+
 
 class TestShortcut:
     def test_find_matches_bound_key(self) -> None:

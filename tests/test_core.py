@@ -68,6 +68,12 @@ class TestWidth:
     def test_wrap_breaks_on_words(self) -> None:
         assert wrap("one two three", 7) == ["one two", "three"]
 
+    def test_wrap_treats_tabs_and_runs_as_separators(self) -> None:
+        # Wrapping splits on whitespace runs (tabs, repeated spaces), matching
+        # Rust's split_whitespace rather than a single-space split.
+        assert wrap("a\tb\tc", 10) == ["a b c"]
+        assert wrap("a   b", 10) == ["a b"]
+
 
 class TestRender:
     def test_plain_text_has_no_escapes(self) -> None:

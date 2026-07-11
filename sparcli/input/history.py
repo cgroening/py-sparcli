@@ -97,7 +97,7 @@ class History:
         except OSError as error:
             logger.warning("could not read history file: %s", error)
             return
-        self._entries = contents.splitlines()
+        self._entries = _split_lines(contents)
 
     def save(self) -> None:
         """Saves entries to the backing file, creating directories as needed."""
@@ -108,6 +108,16 @@ class History:
             self._path.write_text("\n".join(self._entries), encoding="utf-8")
         except OSError as error:
             logger.warning("could not write history file: %s", error)
+
+
+def _split_lines(text: str) -> list[str]:
+    """Splits ``text`` into lines the way Rust's ``str::lines`` does."""
+    if not text:
+        return []
+    parts = text.split("\n")
+    if parts and parts[-1] == "":
+        parts.pop()
+    return [part.removesuffix("\r") for part in parts]
 
 
 def _state_dir() -> Path | None:

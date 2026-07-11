@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import contextlib
+from collections.abc import Iterator
+
+import pytest
+
 from sparcli.input.event import KeyCode, ScriptedSource
 from sparcli.input.text import TextInput
 from sparcli.input.validate import digits, min_len, non_empty
@@ -26,6 +31,34 @@ class TestTextInput:
             TextInput("x").initial("ab"), [KeyCode.BACKSPACE, KeyCode.ENTER]
         )
         assert outcome.value == "a"  # pyright: ignore[reportAttributeAccessIssue]
+
+    def test_editor_runs_with_raw_mode_suspended(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The external editor must run in cooked mode: the round-trip has to
+        # happen inside the suspended-raw-mode context.
+        events: list[str] = []
+
+        @contextlib.contextmanager
+        def fake_suspend() -> Iterator[None]:
+            events.append("suspend")
+            try:
+                yield
+            finally:
+                events.append("resume")
+
+        def fake_edit(command: str | None, value: str, suffix: str) -> str:
+            events.append("edit")
+            return f"{value}!"
+
+        monkeypatch.setattr(
+            "sparcli.input.text.suspended_raw_mode", fake_suspend
+        )
+        monkeypatch.setattr("sparcli.input.text.edit_text", fake_edit)
+        prompt = TextInput("x").editor()
+        result = prompt._edit_value("hi")  # pyright: ignore[reportPrivateUsage]
+        assert result == "hi!"
+        assert events == ["suspend", "edit", "resume"]
 
     def test_esc_cancels(self) -> None:
         outcome = _run(TextInput("x"), [KeyCode.ESC])
