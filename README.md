@@ -65,7 +65,7 @@ Table().columns(['Name', 'Status']).row(['web-1', 'online']).row(
 ╰───────┴────────╯
 ```
 
-A `Panel` frames content with a rounded border and an optional title. A left-aligned title reads as part of the frame: one connecting border glyph sits before it, never a flush corner.
+A `Panel` frames content with a rounded border and an optional title. A left-aligned title reads as part of the frame: one connecting border glyph sits before it, never a flush corner - unless the title is too wide for the frame, in which case it is truncated into the border rather than widening the panel.
 
 ```python
 from sparcli import Panel
