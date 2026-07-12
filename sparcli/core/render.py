@@ -184,7 +184,7 @@ def _render_span(span: Span, support: ColorSupport) -> str:
     content = _wrap_link(content, span.link)
     if not codes:
         return content
-    prefix = f"{_ESC}[{';'.join(codes)}m"
+    prefix = f"{_ESC}[{";".join(codes)}m"
     return f"{prefix}{content}{_RESET}"
 
 

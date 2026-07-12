@@ -154,4 +154,4 @@ class Tree(Renderable):
         if last or not self._guides:
             return " " * width
         guide = self._border.chars().vertical
-        return f"{guide}{' ' * (width - 1)}"
+        return f"{guide}{" " * (width - 1)}"
