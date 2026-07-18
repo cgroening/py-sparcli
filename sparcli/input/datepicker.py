@@ -15,27 +15,33 @@ grid with the selected day highlighted.
 from __future__ import annotations
 
 import calendar
-from collections.abc import Iterable
 from datetime import MAXYEAR, MINYEAR, date, timedelta
+from typing import TYPE_CHECKING
 
 from sparcli.core.render import Rendered
 from sparcli.core.style import Style
-from sparcli.core.terminal import is_input_tty
 from sparcli.core.text import Line, Span
 from sparcli.core.theme import Theme, theme
-from sparcli.errors import NoTerminalError
 from sparcli.input.event import (
     EventKind,
     EventSource,
     InputEvent,
     KeyCode,
     KeyPress,
-    TerminalSource,
 )
-from sparcli.input.guard import TerminalGuard
-from sparcli.input.outcome import Outcome
-from sparcli.input.prompt import Flow, run_prompt
-from sparcli.input.shortcut import Shortcut, find, help_overlay, hint_line
+from sparcli.input.prompt import Flow, run_on_terminal, run_prompt
+from sparcli.input.shortcut import (
+    Shortcut,
+    find,
+    help_overlay,
+    hint_line,
+    opens_help,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from sparcli.input.outcome import Outcome
 
 # The picker's result payload: a selected date, or ``None`` when cleared.
 _Result = date | None
@@ -47,8 +53,6 @@ DAYS_PER_WEEK = 7
 # Number of months in a year (used for month arithmetic and year jumps).
 MONTHS_PER_YEAR = 12
 
-# Character that opens the help overlay when shortcuts are registered.
-_HELP_KEY = "?"
 # Monday-first weekday column header.
 _WEEKDAY_HEADER = "Mo Tu We Th Fr Sa Su"
 # Line shown while the selection is cleared.
@@ -75,7 +79,7 @@ _MONTH_NAMES = (
 class _State:
     """Mutable state of a running date picker (selection and help flag)."""
 
-    __slots__ = ("selected", "help")
+    __slots__ = ("help", "selected")
 
     def __init__(self, selected: date | None) -> None:
         self.selected: date | None = selected
@@ -99,7 +103,7 @@ class DatePicker:
     True
     """
 
-    __slots__ = ("_prompt", "_initial", "_allow_clear", "_shortcuts")
+    __slots__ = ("_allow_clear", "_initial", "_prompt", "_shortcuts")
 
     def __init__(
         self,
@@ -110,7 +114,7 @@ class DatePicker:
         shortcuts: Iterable[Shortcut] | None = None,
     ) -> None:
         self._prompt = prompt
-        self._initial: date = initial if initial is not None else date.today()
+        self._initial: date = initial if initial is not None else _today()
         self._allow_clear = allow_clear
         self._shortcuts: list[Shortcut] = (
             list(shortcuts) if shortcuts is not None else []
@@ -146,10 +150,7 @@ class DatePicker:
         NoTerminalError
             If standard input or output is not an interactive terminal.
         """
-        if not is_input_tty():
-            raise NoTerminalError()
-        with TerminalGuard():
-            return self.run_with(TerminalSource())
+        return run_on_terminal(self.run_with)
 
     def run_with(self, source: EventSource) -> Outcome[date | None]:
         """
@@ -196,7 +197,7 @@ class DatePicker:
         if state.help:
             state.help = False
             return _DateFlow.cont()
-        if self._shortcuts and key.code == KeyCode.char(_HELP_KEY):
+        if opens_help(key, self._shortcuts):
             state.help = True
             return _DateFlow.cont()
         fired = find(key, self._shortcuts)
@@ -217,10 +218,26 @@ class DatePicker:
             state.selected = None
             return _DateFlow.cont()
         if state.selected is None:
-            state.selected = date.today()
+            state.selected = _today()
             return _DateFlow.cont()
         state.selected = _apply_nav(state.selected, key)
         return _DateFlow.cont()
+
+
+def _today() -> date:
+    """
+    Returns today's date in the local time zone.
+
+    This is a deliberate divergence from the Rust port, which uses UTC because
+    it has no local-time API without a dependency. Near midnight the default
+    day can therefore differ by one between the two ports; see ``CLAUDE.md``.
+
+    Returns
+    -------
+    date
+        The current local date.
+    """
+    return date.today()  # noqa: DTZ011
 
 
 def _header_line(value: date, active: Theme) -> Line:

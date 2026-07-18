@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from conftest import joined as _joined
+from conftest import plain_lines as _plain
+
 from sparcli.core.border import BorderType
 from sparcli.core.geometry import Align, Edges, VAlign
 from sparcli.core.render import Rendered
@@ -14,16 +17,6 @@ from sparcli.output.columns import Columns
 from sparcli.output.compose import align, pad, vstack
 from sparcli.output.kv import KeyValue
 from sparcli.output.rule import Rule
-
-
-def _plain(rendered: Rendered) -> list[str]:
-    """Returns the plain text of each rendered line."""
-    return [line.plain() for line in rendered.lines]
-
-
-def _joined(rendered: Rendered) -> str:
-    """Returns the plain text of all lines joined by newlines."""
-    return "\n".join(line.plain() for line in rendered.lines)
 
 
 class TestAlert:

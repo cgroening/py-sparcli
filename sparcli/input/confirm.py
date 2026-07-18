@@ -13,26 +13,32 @@ outcome and appear in a footer hint and the ``?`` help overlay.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from sparcli.core.render import Rendered
 from sparcli.core.style import Style
-from sparcli.core.terminal import is_input_tty
 from sparcli.core.text import Line, Span
 from sparcli.core.theme import Theme, theme
-from sparcli.errors import NoTerminalError
 from sparcli.input.event import (
     EventKind,
     EventSource,
     InputEvent,
     KeyCode,
     KeyPress,
-    TerminalSource,
 )
-from sparcli.input.guard import TerminalGuard
-from sparcli.input.outcome import Outcome
-from sparcli.input.prompt import Flow, run_prompt
-from sparcli.input.shortcut import Shortcut, find, help_overlay, hint_line
+from sparcli.input.prompt import Flow, run_on_terminal, run_prompt
+from sparcli.input.shortcut import (
+    Shortcut,
+    find,
+    help_overlay,
+    hint_line,
+    opens_help,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from sparcli.input.outcome import Outcome
 
 # Keys that toggle the current selection.
 _TOGGLE_CODES = frozenset(
@@ -49,7 +55,7 @@ _TOGGLE_CODES = frozenset(
 class _State:
     """The mutable state of a running confirm prompt."""
 
-    __slots__ = ("yes", "help")
+    __slots__ = ("help", "yes")
 
     def __init__(self, yes: bool) -> None:
         self.yes = yes
@@ -60,11 +66,11 @@ class Confirm:
     """A yes/no confirmation prompt with custom labels and shortcuts."""
 
     __slots__ = (
-        "_question",
         "_default_yes",
-        "_yes_label",
         "_no_label",
+        "_question",
         "_shortcuts",
+        "_yes_label",
     )
 
     def __init__(
@@ -114,13 +120,22 @@ class Confirm:
         NoTerminalError
             If there is no interactive terminal.
         """
-        if not is_input_tty():
-            raise NoTerminalError()
-        with TerminalGuard():
-            return self.run_with(TerminalSource())
+        return run_on_terminal(self.run_with)
 
     def run_with(self, source: EventSource) -> Outcome[bool]:
-        """Runs the prompt against any event source (used for tests)."""
+        """
+        Runs the prompt against ``source`` and returns the outcome.
+
+        Parameters
+        ----------
+        source : EventSource
+            The event source driving the prompt (a fake in tests).
+
+        Returns
+        -------
+        Outcome[bool]
+            The submitted value, a cancellation, or a fired shortcut.
+        """
         state = _State(self._default_yes)
         return run_prompt(source, state, self._render, self._handle)
 
@@ -158,7 +173,7 @@ class Confirm:
             return Flow[bool].cont()
         if key.is_ctrl("c"):
             return Flow[bool].cancel()
-        if key.code == KeyCode.char("?") and self._shortcuts:
+        if opens_help(key, self._shortcuts):
             state.help = True
             return Flow[bool].cont()
         fired = find(key, self._shortcuts)

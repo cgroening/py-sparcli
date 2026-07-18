@@ -15,28 +15,28 @@ shared prompt pattern of a kwargs constructor, fluent builders, a guarded
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from sparcli.core.render import Rendered
 from sparcli.core.style import Style
-from sparcli.core.terminal import is_input_tty
 from sparcli.core.text import Line, Span
-from sparcli.core.theme import Theme, theme
-from sparcli.errors import NoTerminalError
-from sparcli.input.event import (
-    EventKind,
-    EventSource,
-    InputEvent,
-    KeyCode,
-    KeyKind,
-    KeyPress,
-    TerminalSource,
-)
-from sparcli.input.guard import TerminalGuard
+from sparcli.core.theme import theme
+from sparcli.input.event import EventKind, KeyCode, KeyKind
 from sparcli.input.line_edit import LineEditor
-from sparcli.input.outcome import Outcome
-from sparcli.input.prompt import Flow, run_prompt
+from sparcli.input.prompt import Flow, run_on_terminal, run_prompt
+from sparcli.input.selection import (
+    SelectionCursor,
+    checked_indices,
+    first_index,
+)
 from sparcli.input.shortcut import Shortcut, find, hint_line
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from sparcli.core.theme import Theme
+    from sparcli.input.event import EventSource, InputEvent, KeyPress
+    from sparcli.input.outcome import Outcome
 
 # Default number of visible result rows.
 DEFAULT_VISIBLE = 10
@@ -112,7 +112,7 @@ def _is_word_start(haystack: str, position: int) -> bool:
 class _State:
     """The mutable state of a running fuzzy prompt."""
 
-    __slots__ = ("query", "filtered", "cursor", "offset", "checked")
+    __slots__ = ("checked", "cursor", "filtered", "offset", "query")
 
     def __init__(
         self,
@@ -148,12 +148,12 @@ class FuzzySelect:
     """
 
     __slots__ = (
-        "_prompt",
-        "_options",
-        "_max_visible",
-        "_multi",
-        "_shortcuts",
+        "_cursor",
         "_initial_query",
+        "_multi",
+        "_options",
+        "_prompt",
+        "_shortcuts",
     )
 
     def __init__(
@@ -168,7 +168,7 @@ class FuzzySelect:
     ) -> None:
         self._prompt = prompt
         self._options = list(options)
-        self._max_visible = max(max_visible, 1)
+        self._cursor = SelectionCursor(max_visible)
         self._multi = multi
         self._shortcuts = list(shortcuts)
         self._initial_query = initial_query
@@ -185,7 +185,7 @@ class FuzzySelect:
 
     def max_visible(self, rows: int) -> FuzzySelect:
         """Sets the maximum number of result rows and returns ``self``."""
-        self._max_visible = max(rows, 1)
+        self._cursor.max_visible = max(rows, 1)
         return self
 
     def query(self, query: str) -> FuzzySelect:
@@ -212,7 +212,7 @@ class FuzzySelect:
         NoTerminalError
             If standard input or output is not an interactive terminal.
         """
-        return _first_index(self._run_collect())
+        return first_index(self._run_collect())
 
     def run_multi(self) -> Outcome[list[int]]:
         """
@@ -253,10 +253,7 @@ class FuzzySelect:
 
     def _run_collect(self) -> Outcome[list[int]]:
         """Sets up the terminal and runs the prompt loop."""
-        if not is_input_tty():
-            raise NoTerminalError
-        with TerminalGuard():
-            return self.run_with(TerminalSource())
+        return run_on_terminal(self.run_with)
 
     def _initial_state(self) -> _State:
         """Builds the starting state, applying the initial query."""
@@ -270,7 +267,7 @@ class FuzzySelect:
         """Builds the frame: the query field plus the filtered results."""
         active = theme()
         lines = [_query_line(self._prompt, state, active, final_frame)]
-        end = min(state.offset + self._max_visible, len(state.filtered))
+        end = min(state.offset + self._cursor.max_visible, len(state.filtered))
         for row in range(state.offset, end):
             lines.append(self._result_line(state, row, active))
         if not final_frame and self._shortcuts:
@@ -319,9 +316,9 @@ class FuzzySelect:
     def _edit_or_move(self, state: _State, code: KeyCode) -> None:
         """Applies a navigation or query-editing key to the state."""
         if code == KeyCode.UP:
-            self._move_cursor(state, -1)
+            self._cursor.move(state, -1, len(state.filtered))
         elif code == KeyCode.DOWN:
-            self._move_cursor(state, 1)
+            self._cursor.move(state, 1, len(state.filtered))
         elif code == _SPACE and self._multi:
             self._toggle(state)
         elif code == KeyCode.BACKSPACE:
@@ -334,12 +331,7 @@ class FuzzySelect:
     def _submit(self, state: _State) -> _Flow:
         """Submits the current selection when possible."""
         if self._multi:
-            indices = [
-                index
-                for index in range(len(self._options))
-                if state.checked[index]
-            ]
-            return _Flow.submit(indices)
+            return _Flow.submit(checked_indices(state.checked))
         if 0 <= state.cursor < len(state.filtered):
             return _Flow.submit([state.filtered[state.cursor]])
         return _Flow.cont()
@@ -355,17 +347,6 @@ class FuzzySelect:
         state.filtered = self._filter(state.query.value())
         state.cursor = 0
         state.offset = 0
-
-    def _move_cursor(self, state: _State, delta: int) -> None:
-        """Moves the cursor within the results, keeping it visible."""
-        length = len(state.filtered)
-        if length == 0:
-            return
-        state.cursor = (state.cursor + delta) % length
-        if state.cursor < state.offset:
-            state.offset = state.cursor
-        elif state.cursor >= state.offset + self._max_visible:
-            state.offset = state.cursor + 1 - self._max_visible
 
     def _filter(self, query: str) -> list[int]:
         """Filters and ranks options for ``query`` (original order if empty)."""
@@ -390,12 +371,3 @@ def _query_line(
     if not final_frame:
         spans.append(Span.styled(" ", active.cursor))
     return Line(spans)
-
-
-def _first_index(outcome: Outcome[list[int]]) -> Outcome[int]:
-    """Reduces a collected outcome to its first index (single-select)."""
-    if outcome.is_shortcut:
-        return Outcome.shortcut(outcome.shortcut_id or 0)
-    if outcome.is_submitted and outcome.value:
-        return Outcome.submitted(outcome.value[0])
-    return Outcome.cancelled()

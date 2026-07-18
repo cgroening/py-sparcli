@@ -1,6 +1,6 @@
 """
 sparcli.output.table.table
-===========================
+==========================
 
 Defines the public table classes :class:`Table`, :class:`Column` and
 :class:`Cell`.
@@ -16,8 +16,8 @@ width computation) and :mod:`sparcli.output.table.render` (line assembly).
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from sparcli.core.border import BorderType
 from sparcli.core.geometry import Align
@@ -25,6 +25,9 @@ from sparcli.core.render import Renderable, Rendered
 from sparcli.core.style import Style
 from sparcli.core.text import IntoText, Text, into_text
 from sparcli.core.theme import theme
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 class Column:
@@ -48,11 +51,11 @@ class Column:
     """
 
     __slots__ = (
-        "header",
         "alignment",
-        "width_min",
-        "width_max",
+        "header",
         "width_fixed",
+        "width_max",
+        "width_min",
         "wrapping",
     )
 
@@ -120,7 +123,7 @@ class Cell:
         The number of rows the cell spans (at least ``1``).
     """
 
-    __slots__ = ("content", "alignment", "span_cols", "span_rows")
+    __slots__ = ("alignment", "content", "span_cols", "span_rows")
 
     def __init__(
         self,
@@ -228,7 +231,7 @@ class Table(Renderable):
     True
     """
 
-    __slots__ = ("_columns", "_rows", "_opts")
+    __slots__ = ("_columns", "_opts", "_rows")
 
     def __init__(
         self,
@@ -339,7 +342,19 @@ class Table(Renderable):
         return self
 
     def render(self, max_width: int) -> Rendered:
-        """Renders the table into at most ``max_width`` columns."""
+        """
+        Renders the table into at most ``max_width`` columns.
+
+        Parameters
+        ----------
+        max_width : int
+            The number of columns available for the block.
+
+        Returns
+        -------
+        Rendered
+            The laid-out block of styled lines.
+        """
         if not self._columns:
             return Rendered.empty()
         from sparcli.output.table.plan import build_plan, column_widths

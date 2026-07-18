@@ -12,13 +12,17 @@ compose the same way.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
-from sparcli.core.geometry import Align, Edges
 from sparcli.core.render import Rendered
-from sparcli.core.style import Style
 from sparcli.core.text import Line, Span
 from sparcli.output.layout import blank_line, pad_line, space_span
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from sparcli.core.geometry import Align, Edges
+    from sparcli.core.style import Style
 
 
 def align(rendered: Rendered, width: int, alignment: Align) -> Rendered:

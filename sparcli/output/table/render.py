@@ -1,6 +1,6 @@
 """
 sparcli.output.table.render
-============================
+===========================
 
 Assembles the final rendered lines of a table.
 
@@ -81,7 +81,7 @@ class _RowCtx:
 class Builder:
     """Assembles the table lines from the layout, plan and column widths."""
 
-    __slots__ = ("layout", "opts", "plan", "widths", "chars")
+    __slots__ = ("chars", "layout", "opts", "plan", "widths")
 
     def __init__(
         self, layout: TableLayout, plan: list[RowPlan], widths: list[int]
@@ -262,7 +262,7 @@ def _format_cell(cell: Cell, fmt: _Fmt) -> list[Line]:
         else:
             span_style = line.spans[0].style if line.spans else fmt.style
             cell_style = fmt.style.patch(span_style)
-            out.append(Line.styled(truncate(plain, fmt.width, "…"), cell_style))
+            out.append(Line.styled(truncate(plain, fmt.width), cell_style))
     if not out:
         out.append(Line())
     return out
@@ -299,4 +299,4 @@ def _clip(line: Line, width: int) -> Line:
     if line.width() <= width:
         return line
     style = line.spans[0].style if line.spans else Style()
-    return Line.styled(truncate(line.plain(), width, "…"), style)
+    return Line.styled(truncate(line.plain(), width), style)

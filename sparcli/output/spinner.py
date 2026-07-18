@@ -8,19 +8,22 @@ A :class:`Spinner` is a single line that cycles through a set of glyphs while a
 task runs, then closes with a success or failure marker. The static
 :meth:`Spinner.frame` builds the current line without touching the terminal,
 while :meth:`Spinner.tick` advances the animation and redraws it in place via
-:class:`~sparcli.output.live.InPlace`.
+:class:`~sparcli.core.inplace.InPlace`.
 """
 
 from __future__ import annotations
 
 import enum
+from typing import TYPE_CHECKING
 
-from sparcli.core.color import Color
+from sparcli.core.inplace import InPlace
 from sparcli.core.render import Rendered
 from sparcli.core.style import Style
 from sparcli.core.text import Line, Span
 from sparcli.core.theme import theme
-from sparcli.output.live import InPlace
+
+if TYPE_CHECKING:
+    from sparcli.core.color import Color
 
 
 class SpinnerStyle(enum.Enum):
@@ -60,12 +63,12 @@ class Spinner:
     """An animated, single-line spinner with a label."""
 
     __slots__ = (
-        "_style",
         "_color",
-        "_label",
-        "_label_style",
         "_frame_index",
         "_inplace",
+        "_label",
+        "_label_style",
+        "_style",
     )
 
     def __init__(

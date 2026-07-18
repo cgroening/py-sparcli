@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+from conftest import plain_lines
+
 from sparcli.core.border import BorderType
 from sparcli.core.color import Color
 from sparcli.core.geometry import Align
-from sparcli.core.render import Rendered
 from sparcli.core.style import Style
 from sparcli.core.width import visible_width
 from sparcli.output.table import Cell, Column, Table
 
-
-def plain_lines(rendered: Rendered) -> list[str]:
-    """Returns each rendered line as plain text for assertions."""
-    return [line.plain() for line in rendered.lines]
+if TYPE_CHECKING:
+    from sparcli.core.render import Rendered
 
 
 def outer_width(rendered: Rendered) -> int:
@@ -33,9 +34,11 @@ class TestBorders:
         )
         lines = plain_lines(table.render(80))
         assert lines[0].startswith("┌")
-        assert "A" in lines[1] and "B" in lines[1]
+        assert "A" in lines[1]
+        assert "B" in lines[1]
         assert lines[2].startswith("├")
-        assert "1" in lines[3] and "2" in lines[3]
+        assert "1" in lines[3]
+        assert "2" in lines[3]
         assert lines[4].startswith("└")
 
     def test_each_border_type_uses_its_corner_glyph(self) -> None:
@@ -56,8 +59,10 @@ class TestBorders:
             Table().columns(["A", "B"]).row(["1", "2"]).border(BorderType.NONE)
         )
         joined = "\n".join(plain_lines(table.render(80)))
-        assert "┌" not in joined and "+" not in joined
-        assert "A" in joined and "1" in joined
+        assert "┌" not in joined
+        assert "+" not in joined
+        assert "A" in joined
+        assert "1" in joined
 
 
 class TestAlignment:

@@ -11,9 +11,13 @@ draw those four shapes consistently so the prompts share one look.
 
 from __future__ import annotations
 
-from sparcli.core.style import Style
+from typing import TYPE_CHECKING
+
 from sparcli.core.text import Line, Span
-from sparcli.core.theme import Theme
+
+if TYPE_CHECKING:
+    from sparcli.core.style import Style
+    from sparcli.core.theme import Theme
 
 
 def field_line(

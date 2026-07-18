@@ -9,24 +9,24 @@ LineEditor`, validates and filters input, recalls history with Up/Down and
 completes suggestions either as dim inline ghost text or as a navigable
 dropdown. It returns an :class:`~sparcli.input.outcome.Outcome` carrying the
 submitted string, or a cancellation. Rendering and the event loop are delegated
-to the shared infrastructure, so this module only wires configuration, state
-and key handling together.
+to the shared infrastructure, and the two larger concerns live in their own
+collaborators: :class:`~sparcli.input.completion.Completion` for suggestions and
+:class:`~sparcli.input.recall.HistoryRecall` for Up/Down history. This module
+only wires configuration, state and key handling together.
 """
 
 from __future__ import annotations
 
-import enum
 import logging
-from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from sparcli.core.render import Rendered
 from sparcli.core.style import Style
-from sparcli.core.terminal import is_input_tty
 from sparcli.core.text import Line, Span
 from sparcli.core.theme import Theme, theme
-from sparcli.errors import NoTerminalError, SparcliError
-from sparcli.input.editor import edit_text, suspended_raw_mode
+from sparcli.input.completion import Completion, MatchMode
+from sparcli.input.editor import edit_or_none
 from sparcli.input.event import (
     EventKind,
     EventSource,
@@ -34,7 +34,6 @@ from sparcli.input.event import (
     KeyCode,
     KeyKind,
     KeyPress,
-    TerminalSource,
 )
 from sparcli.input.field import (
     error_line,
@@ -42,24 +41,24 @@ from sparcli.input.field import (
     placeholder_line,
     value_line,
 )
-from sparcli.input.guard import TerminalGuard
-from sparcli.input.history import History
-from sparcli.input.line_edit import LineEditor
-from sparcli.input.outcome import Outcome
-from sparcli.input.prompt import Flow, run_prompt
-from sparcli.input.validate import CharFilter, Validator
+from sparcli.input.line_edit import (
+    CTRL_ACTIONS,
+    LineEditor,
+    apply_caret_key,
+)
+from sparcli.input.prompt import Flow, run_on_terminal, run_prompt
+from sparcli.input.recall import HistoryRecall
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
+    from sparcli.input.outcome import Outcome
+    from sparcli.input.validate import CharFilter, Validator
 
 logger = logging.getLogger(__name__)
 
-# Maximum number of dropdown rows shown at once.
-MAX_DROPDOWN = 5
-
-
-class MatchMode(enum.Enum):
-    """How suggestions are matched against the typed value."""
-
-    PREFIX = enum.auto()
-    SUBSEQUENCE = enum.auto()
+# Temporary file suffix handed to the external editor.
+_EDITOR_SUFFIX = ".txt"
 
 
 @dataclass(slots=True)
@@ -68,22 +67,8 @@ class _State:
 
     editor: LineEditor
     error: str | None
-    history_index: int | None
     dropdown_index: int | None
-    history_entries: list[str]
-    store: History | None
-
-
-# Ctrl-letter editing actions dispatched on the shared line editor.
-_CTRL_ACTIONS: dict[str, Callable[[LineEditor], None]] = {
-    "a": LineEditor.select_all,
-    "w": LineEditor.delete_word_back,
-    "u": LineEditor.kill_to_line_start,
-    "k": LineEditor.kill_to_line_end,
-    "c": LineEditor.copy,
-    "x": LineEditor.cut,
-    "v": LineEditor.paste,
-}
+    recall: HistoryRecall
 
 
 class TextInput:
@@ -98,20 +83,18 @@ class TextInput:
     """
 
     __slots__ = (
-        "_prompt",
-        "_initial",
-        "_placeholder",
-        "_max_chars",
-        "_hide_char_count",
-        "_validator",
         "_char_filter",
-        "_suggestions",
+        "_completion",
+        "_editor_command",
+        "_editor_enabled",
+        "_hide_char_count",
         "_history",
         "_history_app",
-        "_dropdown",
-        "_match_mode",
-        "_editor_enabled",
-        "_editor_command",
+        "_initial",
+        "_max_chars",
+        "_placeholder",
+        "_prompt",
+        "_validator",
     )
 
     def __init__(
@@ -139,13 +122,15 @@ class TextInput:
         self._hide_char_count: bool = hide_char_count
         self._validator: Validator | None = validator
         self._char_filter: CharFilter | None = char_filter
-        self._suggestions: list[str] = list(suggestions)
+        self._completion = Completion(
+            suggestions,
+            match_mode=(
+                MatchMode.SUBSEQUENCE if fuzzy_suggestions else MatchMode.PREFIX
+            ),
+            dropdown=dropdown,
+        )
         self._history: list[str] = list(history)
         self._history_app: str | None = history_app
-        self._dropdown: bool = dropdown
-        self._match_mode: MatchMode = (
-            MatchMode.SUBSEQUENCE if fuzzy_suggestions else MatchMode.PREFIX
-        )
         self._editor_enabled: bool = editor or editor_command is not None
         self._editor_command: str | None = editor_command
 
@@ -176,7 +161,7 @@ class TextInput:
 
     def suggestions(self, values: Iterable[str]) -> TextInput:
         """Sets autocomplete suggestions (prefix-matched ghost text)."""
-        self._suggestions = list(values)
+        self._completion.suggestions = list(values)
         return self
 
     def history(self, entries: Iterable[str]) -> TextInput:
@@ -195,12 +180,12 @@ class TextInput:
 
         Up/Down move the highlight, Tab/Enter accept it.
         """
-        self._dropdown = True
+        self._completion.dropdown = True
         return self
 
     def fuzzy_suggestions(self) -> TextInput:
         """Matches suggestions by subsequence (fuzzy) instead of prefix."""
-        self._match_mode = MatchMode.SUBSEQUENCE
+        self._completion.match_mode = MatchMode.SUBSEQUENCE
         return self
 
     def hide_char_count(self) -> TextInput:
@@ -243,21 +228,27 @@ class TextInput:
         NoTerminalError
             When there is no interactive terminal.
         """
-        if not is_input_tty():
-            raise NoTerminalError()
-        with TerminalGuard():
-            return self.run_with(TerminalSource())
+        return run_on_terminal(self.run_with)
 
     def run_with(self, source: EventSource) -> Outcome[str]:
-        """Runs the prompt against any event source (the test seam)."""
-        store, entries = self._load_history()
+        """
+        Runs the prompt against ``source`` and returns the outcome.
+
+        Parameters
+        ----------
+        source : EventSource
+            The event source driving the prompt (a fake in tests).
+
+        Returns
+        -------
+        Outcome[str]
+            The submitted value, a cancellation, or a fired shortcut.
+        """
         state = _State(
             editor=LineEditor(self._initial),
             error=None,
-            history_index=None,
             dropdown_index=None,
-            history_entries=entries,
-            store=store,
+            recall=HistoryRecall.for_app(self._history_app, self._history),
         )
         return run_prompt(source, state, self._render, self._handle)
 
@@ -266,20 +257,10 @@ class TextInput:
         state = _State(
             editor=LineEditor(self._initial),
             error=None,
-            history_index=None,
             dropdown_index=None,
-            history_entries=list(self._history),
-            store=None,
+            recall=HistoryRecall(self._history),
         )
         return self._render(state, False)
-
-    def _load_history(self) -> tuple[History | None, list[str]]:
-        """Loads the persistent store and the entries used for recall."""
-        if self._history_app is None:
-            return (None, list(self._history))
-        store = History.for_app(self._history_app)
-        store.load()
-        return (store, store.entries())
 
     def _render(self, state: _State, final: bool) -> Rendered:
         """Builds the prompt frame: field line, ghost text and dropdown."""
@@ -290,8 +271,10 @@ class TextInput:
             return Rendered([line])
         lines = self._value_lines(state, value, active_theme)
         self._append_char_count(lines, state, active_theme)
-        if self._dropdown:
-            self._push_dropdown(lines, state, value, active_theme)
+        if self._completion.dropdown:
+            lines.extend(
+                self._completion.rows(value, state.dropdown_index, active_theme)
+            )
         if state.error is not None:
             lines.append(error_line(state.error, active_theme))
         return Rendered(lines)
@@ -307,8 +290,8 @@ class TextInput:
         line = field_line(
             self._prompt, value, state.editor.cursor, Style.new(), active_theme
         )
-        if not self._dropdown:
-            ghost = self._ghost(value)
+        if not self._completion.dropdown:
+            ghost = self._completion.ghost(value)
             if ghost is not None:
                 line.spans.append(Span.styled(ghost, active_theme.secondary))
         return [line]
@@ -321,52 +304,6 @@ class TextInput:
             return
         count = f" ({len(state.editor)}/{self._max_chars})"
         lines[-1].spans.append(Span.styled(count, active_theme.secondary))
-
-    def _push_dropdown(
-        self,
-        lines: list[Line],
-        state: _State,
-        value: str,
-        active_theme: Theme,
-    ) -> None:
-        """Appends the dropdown rows for the current matches."""
-        matches = self._matches(value)
-        for row, index in enumerate(matches[:MAX_DROPDOWN]):
-            active = state.dropdown_index == row
-            marker = (
-                active_theme.cursor_marker()
-                if active
-                else active_theme.marker()
-            )
-            style = active_theme.selection if active else active_theme.secondary
-            lines.append(
-                Line(
-                    [
-                        Span.styled(marker, active_theme.selection),
-                        Span.styled(self._suggestions[index], style),
-                    ]
-                )
-            )
-
-    def _ghost(self, value: str) -> str | None:
-        """Returns the ghost completion suffix for ``value``, if any."""
-        if not value:
-            return None
-        for suggestion in self._suggestions:
-            if suggestion.startswith(value) and len(suggestion) > len(value):
-                return suggestion[len(value) :]
-        return None
-
-    def _matches(self, value: str) -> list[int]:
-        """Returns the suggestion indices matching ``value`` (declared order)."""
-        if not value:
-            return []
-        needle = value.lower()
-        return [
-            index
-            for index, suggestion in enumerate(self._suggestions)
-            if _matches_suggestion(needle, suggestion, self._match_mode)
-        ]
 
     def _handle(self, state: _State, event: InputEvent) -> Flow[str]:
         """Handles one input event."""
@@ -398,20 +335,9 @@ class TextInput:
             self._recall_up(state)
         elif code == KeyCode.DOWN:
             self._recall_down(state)
-        elif code == KeyCode.LEFT:
-            state.editor.move_left(select=key.shift)
-        elif code == KeyCode.RIGHT:
-            state.editor.move_right(select=key.shift)
-        elif code == KeyCode.HOME:
-            state.editor.move_home(select=key.shift)
-        elif code == KeyCode.END:
-            state.editor.move_end(select=key.shift)
-        elif code == KeyCode.BACKSPACE:
-            state.editor.backspace()
-            state.dropdown_index = None
-        elif code == KeyCode.DELETE:
-            state.editor.delete()
-            state.dropdown_index = None
+        elif apply_caret_key(state.editor, key, select=key.shift):
+            if code in (KeyCode.BACKSPACE, KeyCode.DELETE):
+                state.dropdown_index = None
         elif code.kind is KeyKind.CHAR and code.ch is not None:
             self._type_char(state, code.ch)
 
@@ -422,79 +348,60 @@ class TextInput:
             return Flow[str].cont()
         if code.ch == "g" and self._editor_enabled:
             return self._launch_editor(state)
-        action = _CTRL_ACTIONS.get(code.ch)
+        action = CTRL_ACTIONS.get(code.ch)
         if action is not None:
             action(state.editor)
         return Flow[str].cont()
 
     def _on_enter(self, state: _State) -> Flow[str]:
         """Enter accepts a highlighted dropdown row, otherwise submits."""
-        if self._dropdown and state.dropdown_index is not None:
+        if self._completion.dropdown and state.dropdown_index is not None:
             self._accept_completion(state)
             return Flow[str].cont()
         return self._submit(state)
 
     def _recall_up(self, state: _State) -> None:
         """Up moves the dropdown highlight, else recalls older history."""
-        if self._dropdown:
-            self._dropdown_move(state, -1)
-        else:
-            self._history_prev(state)
+        self._move_or_recall(state, -1, state.recall.previous)
 
     def _recall_down(self, state: _State) -> None:
         """Down moves the dropdown highlight, else recalls newer history."""
-        if self._dropdown:
-            self._dropdown_move(state, 1)
-        else:
-            self._history_next(state)
+        self._move_or_recall(state, 1, state.recall.following)
 
-    def _dropdown_move(self, state: _State, delta: int) -> None:
-        """Moves the dropdown highlight, cycling over the current matches."""
-        count = min(len(self._matches(state.editor.value())), MAX_DROPDOWN)
-        if count == 0:
-            state.dropdown_index = None
+    def _move_or_recall(
+        self, state: _State, delta: int, recall: Callable[[], str | None]
+    ) -> None:
+        """Moves the dropdown highlight, or applies a recalled entry."""
+        if self._completion.dropdown:
+            state.dropdown_index = self._completion.move(
+                state.editor.value(), state.dropdown_index, delta
+            )
             return
-        current = state.dropdown_index
-        if current is None:
-            state.dropdown_index = 0 if delta > 0 else count - 1
-        else:
-            state.dropdown_index = (current + delta) % count
+        recalled = recall()
+        if recalled is not None:
+            state.editor.set_value(recalled)
 
     def _accept_completion(self, state: _State) -> None:
         """Fills from the highlighted match, or the ghost completion."""
-        if not self._dropdown:
-            self._accept_ghost(state)
+        completed = self._completion.accept(
+            state.editor.value(), state.dropdown_index
+        )
+        if completed is None:
             return
-        matches = self._matches(state.editor.value())
-        row = state.dropdown_index if state.dropdown_index is not None else 0
-        if row < len(matches):
-            state.editor.set_value(self._suggestions[matches[row]])
+        state.editor.set_value(completed)
+        if self._completion.dropdown:
             state.dropdown_index = None
-
-    def _accept_ghost(self, state: _State) -> None:
-        """Accepts the ghost completion, if present."""
-        value = state.editor.value()
-        ghost = self._ghost(value)
-        if ghost is not None:
-            state.editor.set_value(f"{value}{ghost}")
 
     def _launch_editor(self, state: _State) -> Flow[str]:
         """Opens the value in an external editor, then refreshes the prompt."""
-        text = self._edit_value(state.editor.value())
+        text = edit_or_none(
+            self._editor_command, state.editor.value(), _EDITOR_SUFFIX
+        )
         if text is not None:
             single_line = text.replace("\n", " ").rstrip()
             state.editor.set_value(single_line)
             state.dropdown_index = None
         return Flow[str].refresh()
-
-    def _edit_value(self, value: str) -> str | None:
-        """Round-trips ``value`` through the editor, swallowing failures."""
-        try:
-            with suspended_raw_mode():
-                return edit_text(self._editor_command, value, ".txt")
-        except SparcliError as error:
-            logger.debug("could not edit value: %s", error)
-            return None
 
     def _submit(self, state: _State) -> Flow[str]:
         """Validates and submits the current value, persisting history."""
@@ -504,9 +411,7 @@ class TextInput:
             if message is not None:
                 state.error = message
                 return Flow[str].cont()
-        if state.store is not None:
-            state.store.add(value)
-            state.store.save()
+        state.recall.remember(value)
         return Flow[str].submit(value)
 
     def _type_char(self, state: _State, ch: str) -> None:
@@ -523,42 +428,3 @@ class TextInput:
         """Inserts pasted text, applying the character filter."""
         for ch in text:
             self._type_char(state, ch)
-
-    def _history_prev(self, state: _State) -> None:
-        """Recalls the previous (older) history entry."""
-        if not state.history_entries:
-            return
-        if state.history_index is None:
-            index = len(state.history_entries) - 1
-        elif state.history_index == 0:
-            index = 0
-        else:
-            index = state.history_index - 1
-        state.history_index = index
-        state.editor.set_value(state.history_entries[index])
-
-    def _history_next(self, state: _State) -> None:
-        """Recalls the next (newer) entry, clearing past the newest."""
-        index = state.history_index
-        if index is None:
-            return
-        if index + 1 < len(state.history_entries):
-            state.history_index = index + 1
-            state.editor.set_value(state.history_entries[index + 1])
-        else:
-            state.history_index = None
-            state.editor.set_value("")
-
-
-def _matches_suggestion(needle: str, suggestion: str, mode: MatchMode) -> bool:
-    """Returns whether ``suggestion`` matches the lowercase ``needle``."""
-    hay = suggestion.lower()
-    if mode is MatchMode.PREFIX:
-        return hay.startswith(needle)
-    return _is_subsequence(needle, hay)
-
-
-def _is_subsequence(needle: str, hay: str) -> bool:
-    """Returns whether all chars of ``needle`` appear in ``hay`` in order."""
-    chars = iter(hay)
-    return all(target in chars for target in needle)

@@ -8,7 +8,8 @@ Prompts read :class:`InputEvent` values from an :class:`EventSource`. A
 :class:`KeyCode` is a backend-independent logical key; a :class:`KeyPress`
 bundles it with modifier flags. :class:`TerminalSource` reads real keystrokes
 from the terminal using the standard library (``termios``/``tty`` on POSIX,
-``msvcrt`` on Windows) and parses escape sequences into events.
+``msvcrt`` on Windows) and parses escape sequences into events with the tables
+in :mod:`sparcli.input.keydecode`.
 :class:`ScriptedSource` is the test fake that replays a queued list of keys and
 auto-cancels on exhaustion, so prompts can be driven headlessly.
 """
@@ -17,20 +18,27 @@ from __future__ import annotations
 
 import enum
 import os
-import select
 import sys
 from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass, replace
 from typing import ClassVar
 
-# Timeout (seconds) used to disambiguate a lone Esc from an escape sequence.
-_ESC_TIMEOUT = 0.05
-# Timeout (seconds) used while draining a bracketed-paste payload.
-_PASTE_TIMEOUT = 0.2
-
-# Byte offset that turns a Ctrl-letter control byte into its ASCII letter.
-_CTRL_LETTER_BASE = 0x60
+from sparcli.input.keydecode import (
+    CSI_FINAL_MAX,
+    CSI_FINAL_MIN,
+    CTRL_LETTER_BASE,
+    CTRL_LETTER_MAX,
+    ESC_BYTE,
+    ESC_TIMEOUT,
+    FIRST_PRINTABLE,
+    PASTE_TIMEOUT,
+    TAB_BYTE,
+    decode_modifier,
+    poll_ready,
+    to_int,
+    utf8_continuation_count,
+)
 
 
 class KeyKind(enum.Enum):
@@ -239,26 +247,6 @@ def _esc_event() -> InputEvent:
     return InputEvent.from_key(KeyPress.new(KeyCode.ESC))
 
 
-def _decode_modifier(text: str) -> tuple[bool, bool, bool]:
-    """Decodes a CSI modifier parameter into ``(ctrl, alt, shift)``."""
-    if not text:
-        return (False, False, False)
-    try:
-        mask = int(text) - 1
-    except ValueError:
-        return (False, False, False)
-    return (bool(mask & 4), bool(mask & 2), bool(mask & 1))
-
-
-def _poll_ready(fd: int, timeout: float) -> bool:
-    """Returns whether ``fd`` has data ready within ``timeout`` seconds."""
-    try:
-        ready, _, _ = select.select([fd], [], [], timeout)
-    except (OSError, ValueError):
-        return False
-    return bool(ready)
-
-
 class ScriptedSource(EventSource):
     """
     A scripted event source for tests: replays queued events in order.
@@ -294,7 +282,7 @@ class ScriptedSource(EventSource):
 
 
 # CSI final letters shared by cursor and editing keys.
-_CSI_LETTER: dict[str, KeyCode] = {
+CSI_LETTER: dict[str, KeyCode] = {
     "A": KeyCode.UP,
     "B": KeyCode.DOWN,
     "C": KeyCode.RIGHT,
@@ -305,7 +293,7 @@ _CSI_LETTER: dict[str, KeyCode] = {
 }
 
 # CSI ``<n>~`` numeric keys (navigation and function keys).
-_CSI_TILDE: dict[int, KeyCode] = {
+CSI_TILDE: dict[int, KeyCode] = {
     1: KeyCode.HOME,
     2: KeyCode.UNKNOWN,
     3: KeyCode.DELETE,
@@ -329,7 +317,7 @@ _CSI_TILDE: dict[int, KeyCode] = {
 }
 
 # SS3 final letters (``ESC O x``), used by some terminals for F1-F4 and arrows.
-_SS3_LETTER: dict[str, KeyCode] = {
+SS3_LETTER: dict[str, KeyCode] = {
     "P": KeyCode.function(1),
     "Q": KeyCode.function(2),
     "R": KeyCode.function(3),
@@ -343,7 +331,7 @@ _SS3_LETTER: dict[str, KeyCode] = {
 }
 
 # Windows extended-key second characters returned after a ``\x00``/``\xe0``.
-_WIN_SPECIAL: dict[str, KeyCode] = {
+WIN_SPECIAL: dict[str, KeyCode] = {
     "H": KeyCode.UP,
     "P": KeyCode.DOWN,
     "K": KeyCode.LEFT,
@@ -395,13 +383,13 @@ class TerminalSource(EventSource):
         if not chunk:
             return _esc_event()
         byte = chunk[0]
-        if byte == 0x1B:
+        if byte == ESC_BYTE:
             return self._read_escape()
         return self._decode_byte(byte)
 
     def _read_escape(self) -> InputEvent:
         """Parses an escape sequence following an initial Esc byte."""
-        if not _poll_ready(self._fd, _ESC_TIMEOUT):
+        if not poll_ready(self._fd, ESC_TIMEOUT):
             return _esc_event()
         second = os.read(self._fd, 1)
         if not second:
@@ -418,12 +406,12 @@ class TerminalSource(EventSource):
     def _read_csi(self) -> InputEvent:
         """Reads a CSI sequence (``ESC [ ...``) up to its final byte."""
         buf = bytearray()
-        while _poll_ready(self._fd, _ESC_TIMEOUT):
+        while poll_ready(self._fd, ESC_TIMEOUT):
             byte = os.read(self._fd, 1)
             if not byte:
                 break
             buf += byte
-            if 0x40 <= byte[0] <= 0x7E:
+            if CSI_FINAL_MIN <= byte[0] <= CSI_FINAL_MAX:
                 break
         if not buf:
             return _esc_event()
@@ -437,13 +425,13 @@ class TerminalSource(EventSource):
         if params == "200" and final == "~":
             return self._read_paste()
         numbers = params.split(";")
-        ctrl, alt, shift = _decode_modifier(
+        ctrl, alt, shift = decode_modifier(
             numbers[1] if len(numbers) > 1 else ""
         )
         if final == "~":
-            code = _CSI_TILDE.get(_to_int(numbers[0]), KeyCode.UNKNOWN)
+            code = CSI_TILDE.get(to_int(numbers[0]), KeyCode.UNKNOWN)
         else:
-            code = _CSI_LETTER.get(final, KeyCode.UNKNOWN)
+            code = CSI_LETTER.get(final, KeyCode.UNKNOWN)
         press = KeyPress(code, ctrl=ctrl, alt=alt, shift=shift)
         return InputEvent.from_key(press)
 
@@ -452,14 +440,14 @@ class TerminalSource(EventSource):
         byte = os.read(self._fd, 1)
         if not byte:
             return _esc_event()
-        code = _SS3_LETTER.get(chr(byte[0]), KeyCode.UNKNOWN)
+        code = SS3_LETTER.get(chr(byte[0]), KeyCode.UNKNOWN)
         return InputEvent.from_key(KeyPress.new(code))
 
     def _read_paste(self) -> InputEvent:
         """Drains a bracketed-paste payload up to its terminator."""
         terminator = b"\x1b[201~"
         data = bytearray()
-        while _poll_ready(self._fd, _PASTE_TIMEOUT):
+        while poll_ready(self._fd, PASTE_TIMEOUT):
             byte = os.read(self._fd, 1)
             if not byte:
                 break
@@ -473,16 +461,16 @@ class TerminalSource(EventSource):
         """Decodes a single leading byte into a key event."""
         if byte in (0x0D, 0x0A):
             return InputEvent.from_key(KeyPress.new(KeyCode.ENTER))
-        if byte == 0x09:
+        if byte == TAB_BYTE:
             return InputEvent.from_key(KeyPress.new(KeyCode.TAB))
         if byte in (0x7F, 0x08):
             return InputEvent.from_key(KeyPress.new(KeyCode.BACKSPACE))
-        if 0x01 <= byte <= 0x1A:
-            letter = chr(byte + _CTRL_LETTER_BASE)
+        if 0x01 <= byte <= CTRL_LETTER_MAX:
+            letter = chr(byte + CTRL_LETTER_BASE)
             return InputEvent.from_key(
                 KeyPress(KeyCode.char(letter), ctrl=True)
             )
-        if byte < 0x20:
+        if byte < FIRST_PRINTABLE:
             return InputEvent.from_key(KeyPress.new(KeyCode.UNKNOWN))
         text = self._read_utf8(byte)
         if text is None:
@@ -491,7 +479,7 @@ class TerminalSource(EventSource):
 
     def _read_utf8(self, lead: int) -> str | None:
         """Completes a UTF-8 character given its leading byte."""
-        extra = _utf8_continuation_count(lead)
+        extra = utf8_continuation_count(lead)
         buf = bytearray([lead])
         for _ in range(extra):
             byte = os.read(self._fd, 1)
@@ -509,7 +497,7 @@ class TerminalSource(EventSource):
 
         first = msvcrt.getwch()
         if first in ("\x00", "\xe0"):
-            code = _WIN_SPECIAL.get(msvcrt.getwch(), KeyCode.UNKNOWN)
+            code = WIN_SPECIAL.get(msvcrt.getwch(), KeyCode.UNKNOWN)
             return InputEvent.from_key(KeyPress.new(code))
         return self._decode_char_windows(first)
 
@@ -524,28 +512,9 @@ class TerminalSource(EventSource):
             return InputEvent.from_key(KeyPress.new(KeyCode.BACKSPACE))
         if ch == "\x1b":
             return InputEvent.from_key(KeyPress.new(KeyCode.ESC))
-        if 0x01 <= byte <= 0x1A:
-            letter = chr(byte + _CTRL_LETTER_BASE)
+        if 0x01 <= byte <= CTRL_LETTER_MAX:
+            letter = chr(byte + CTRL_LETTER_BASE)
             return InputEvent.from_key(
                 KeyPress(KeyCode.char(letter), ctrl=True)
             )
         return InputEvent.from_key(KeyPress.new(KeyCode.char(ch)))
-
-
-def _to_int(text: str) -> int:
-    """Parses an integer, defaulting to ``0`` on failure."""
-    try:
-        return int(text)
-    except ValueError:
-        return 0
-
-
-def _utf8_continuation_count(lead: int) -> int:
-    """Returns how many continuation bytes follow a UTF-8 leading byte."""
-    if lead >= 0xF0:
-        return 3
-    if lead >= 0xE0:
-        return 2
-    if lead >= 0xC0:
-        return 1
-    return 0

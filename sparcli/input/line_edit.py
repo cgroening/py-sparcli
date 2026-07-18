@@ -1,6 +1,6 @@
 """
 sparcli.input.line_edit
-======================
+=======================
 
 Defines :class:`LineEditor`, the shared text-editing core for input widgets.
 
@@ -9,15 +9,27 @@ operations behind both single- and multi-line prompts. Widgets own the control
 keys (Enter, Esc, ...); the editor only edits. The clipboard is in-process (no
 system dependency); the terminal's bracketed paste still delivers external text
 through :meth:`LineEditor.insert_str`.
+
+Because the editor is the SSOT, the key tables that drive it live here too:
+:data:`CTRL_ACTIONS` and :data:`CTRL_ACTIONS_MASKED` map Ctrl-letters to editor
+operations, and :func:`apply_caret_key` applies the caret and deletion keys that
+every free-text prompt shares.
 """
 
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from sparcli.input.event import KeyPress
 
 
 class LineEditor:
     """A caret-and-selection text editor over a character buffer."""
 
-    __slots__ = ("_chars", "_cursor", "_anchor", "_clipboard", "_multiline")
+    __slots__ = ("_anchor", "_chars", "_clipboard", "_cursor", "_multiline")
 
     def __init__(self, initial: str = "", *, multiline: bool = False) -> None:
         self._chars: list[str] = list(initial)
@@ -203,7 +215,7 @@ class LineEditor:
             self._anchor = None
 
     def _delete_selection(self) -> bool:
-        """Deletes the current selection; returns whether anything was removed."""
+        """Deletes the selection; returns whether anything was removed."""
         span = self.selection_range()
         if span is None:
             self._anchor = None
@@ -227,3 +239,66 @@ class LineEditor:
             if self._chars[pos] == "\n":
                 return pos
         return len(self._chars)
+
+
+# Ctrl-letter editing actions dispatched on the shared line editor. The full
+# table drives the plain-text prompts; the masked variant is the deliberately
+# narrower set for password entry, where clipboard and select-all would leak
+# the secret. Both mirror the Rust port.
+CTRL_ACTIONS: dict[str, Callable[[LineEditor], None]] = {
+    "a": LineEditor.select_all,
+    "w": LineEditor.delete_word_back,
+    "u": LineEditor.kill_to_line_start,
+    "k": LineEditor.kill_to_line_end,
+    "c": LineEditor.copy,
+    "x": LineEditor.cut,
+    "v": LineEditor.paste,
+}
+
+CTRL_ACTIONS_MASKED: dict[str, Callable[[LineEditor], None]] = {
+    "u": LineEditor.kill_to_line_start,
+    "w": LineEditor.delete_word_back,
+}
+
+
+def apply_caret_key(editor: LineEditor, key: KeyPress, *, select: bool) -> bool:
+    """
+    Applies the caret and deletion keys every free-text prompt shares.
+
+    Prompt-specific keys (Tab, Enter, Up/Down and so on) stay with the caller;
+    this covers only the movement and deletion keys whose meaning is identical
+    everywhere.
+
+    Parameters
+    ----------
+    editor : LineEditor
+        The editor to act on.
+    key : KeyPress
+        The key to apply.
+    select : bool
+        Whether movement extends the selection (usually ``key.shift``).
+
+    Returns
+    -------
+    bool
+        ``True`` if the key was consumed, ``False`` if the caller must handle
+        it.
+    """
+    from sparcli.input.event import KeyCode
+
+    code = key.code
+    if code == KeyCode.LEFT:
+        editor.move_left(select=select)
+    elif code == KeyCode.RIGHT:
+        editor.move_right(select=select)
+    elif code == KeyCode.HOME:
+        editor.move_home(select=select)
+    elif code == KeyCode.END:
+        editor.move_end(select=select)
+    elif code == KeyCode.BACKSPACE:
+        editor.backspace()
+    elif code == KeyCode.DELETE:
+        editor.delete()
+    else:
+        return False
+    return True

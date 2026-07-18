@@ -57,15 +57,15 @@ class Diff(Renderable):
     """A unified, colored diff between an ``old`` and a ``new`` text."""
 
     __slots__ = (
-        "_old",
-        "_new",
-        "_context",
-        "_no_header",
-        "_old_label",
-        "_new_label",
         "_add_style",
+        "_context",
         "_del_style",
         "_hunk_style",
+        "_new",
+        "_new_label",
+        "_no_header",
+        "_old",
+        "_old_label",
     )
 
     def __init__(
@@ -116,7 +116,19 @@ class Diff(Renderable):
         return self
 
     def render(self, max_width: int) -> Rendered:
-        """Renders the diff; ``max_width`` is accepted but not constraining."""
+        """
+        Renders the diff; ``max_width`` is accepted but not constraining.
+
+        Parameters
+        ----------
+        max_width : int
+            The number of columns available for the block.
+
+        Returns
+        -------
+        Rendered
+            The laid-out block of styled lines.
+        """
         del max_width
         old = _split_lines(self._old)
         new = _split_lines(self._new)

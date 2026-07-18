@@ -133,7 +133,7 @@ class Color:
     LIGHT_CYAN: ClassVar[Color]
     WHITE: ClassVar[Color]
 
-    __slots__ = ("_name", "_rgb", "_index")
+    __slots__ = ("_index", "_name", "_rgb")
 
     def __init__(
         self,
@@ -249,6 +249,7 @@ class Color:
         return None
 
     def __eq__(self, other: object) -> bool:
+        """Returns whether both colors name the same value."""
         if not isinstance(other, Color):
             return NotImplemented
         return (
@@ -258,9 +259,11 @@ class Color:
         )
 
     def __hash__(self) -> int:
+        """Returns a hash consistent with :meth:`__eq__`."""
         return hash((self._name, self._rgb, self._index))
 
     def __repr__(self) -> str:
+        """Returns the constructor call that rebuilds this color."""
         if self._name is not None:
             return f"Color.{self._name.name}"
         if self._rgb is not None:
@@ -286,9 +289,13 @@ def _nearest_ansi16(red: int, green: int, blue: int) -> int:
     return base + 8 if bright else base
 
 
+# Size of the base ANSI palette; indices below this pass through unchanged.
+_ANSI16_SIZE = 16
+
+
 def _indexed_to_ansi16(index: int) -> int:
     """Collapses a 256-color index onto the 16-color palette."""
-    if index < 16:
+    if index < _ANSI16_SIZE:
         return index
     if index >= _GRAYSCALE_LIGHT:
         return 15

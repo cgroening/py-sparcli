@@ -1,6 +1,6 @@
 """
 sparcli.input
-============
+=============
 
 Interactive single-input prompts driven by an :class:`EventSource`.
 

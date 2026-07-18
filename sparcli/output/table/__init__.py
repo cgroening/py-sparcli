@@ -1,6 +1,6 @@
 """
 sparcli.output.table
-=====================
+====================
 
 Data tables with headers, footers, borders, alignment and wrapping.
 

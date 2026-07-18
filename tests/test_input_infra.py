@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from sparcli.core.render import Rendered
 from sparcli.core.style import Style
@@ -37,6 +37,9 @@ from sparcli.input.validate import (
     no_space,
     non_empty,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class State:

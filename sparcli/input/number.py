@@ -13,11 +13,11 @@ returns the value in an :class:`~sparcli.input.outcome.Outcome`.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sparcli.core.render import Rendered
 from sparcli.core.style import Style
-from sparcli.core.terminal import is_input_tty
 from sparcli.core.theme import theme
-from sparcli.errors import NoTerminalError
 from sparcli.input.calc import CalcError, evaluate, parse_number
 from sparcli.input.event import (
     EventKind,
@@ -26,13 +26,13 @@ from sparcli.input.event import (
     KeyCode,
     KeyKind,
     KeyPress,
-    TerminalSource,
 )
 from sparcli.input.field import error_line, field_line, value_line
-from sparcli.input.guard import TerminalGuard
 from sparcli.input.line_edit import LineEditor
-from sparcli.input.outcome import Outcome
-from sparcli.input.prompt import Flow, run_prompt
+from sparcli.input.prompt import Flow, run_on_terminal, run_prompt
+
+if TYPE_CHECKING:
+    from sparcli.input.outcome import Outcome
 
 # Characters that may form a plain number.
 _NUMERIC_CHARS = "0123456789.,-"
@@ -54,13 +54,13 @@ class NumberInput:
     """A numeric input prompt with bounds, step and optional calculator mode."""
 
     __slots__ = (
-        "_prompt",
-        "_initial",
-        "_minimum",
-        "_maximum",
-        "_step",
-        "_decimals",
         "_calculator",
+        "_decimals",
+        "_initial",
+        "_maximum",
+        "_minimum",
+        "_prompt",
+        "_step",
     )
 
     def __init__(
@@ -122,13 +122,22 @@ class NumberInput:
         NoTerminalError
             If there is no interactive terminal.
         """
-        if not is_input_tty():
-            raise NoTerminalError()
-        with TerminalGuard():
-            return self.run_with(TerminalSource())
+        return run_on_terminal(self.run_with)
 
     def run_with(self, source: EventSource) -> Outcome[float]:
-        """Runs the prompt against any event source (used for tests)."""
+        """
+        Runs the prompt against ``source`` and returns the outcome.
+
+        Parameters
+        ----------
+        source : EventSource
+            The event source driving the prompt (a fake in tests).
+
+        Returns
+        -------
+        Outcome[float]
+            The submitted value, a cancellation, or a fired shortcut.
+        """
         state = _State(LineEditor(self._format(self._initial)))
         return run_prompt(source, state, self._render, self._handle)
 

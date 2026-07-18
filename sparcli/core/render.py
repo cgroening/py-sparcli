@@ -18,12 +18,14 @@ from __future__ import annotations
 import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
-from sparcli.core.color import ResolvedColor
 from sparcli.core.style import Attribute, Style
 from sparcli.core.terminal import ColorSupport, color_support, term_width
 from sparcli.core.text import IntoLine, Line, Span, Text, into_line
+
+if TYPE_CHECKING:
+    from sparcli.core.color import ResolvedColor
 
 _ESC = "\x1b"
 _RESET = f"{_ESC}[0m"
@@ -33,10 +35,11 @@ _OSC8_END = f"{_ESC}\\"
 # Control characters (C0, DEL and C1) minus tab. Emitting these verbatim lets
 # untrusted content inject escape sequences or corrupt the layout, so they are
 # stripped just before text reaches the terminal.
+_TAB_BYTE = 0x09
 _CONTROL_TABLE: dict[int, None] = {
     code: None
-    for code in (*range(0x00, 0x20), 0x7F, *range(0x80, 0xA0))
-    if code != 0x09
+    for code in (*range(0x20), 0x7F, *range(0x80, 0xA0))
+    if code != _TAB_BYTE
 }
 
 # SGR parameter for each attribute flag.
@@ -127,7 +130,20 @@ class Rendered(Renderable):
         return cls(list(text.lines))
 
     def render(self, max_width: int) -> Rendered:
-        """Returns a copy of this block, ignoring ``max_width``."""
+        """
+        Returns a copy of this block, ignoring ``max_width``.
+
+        Parameters
+        ----------
+        max_width : int
+            Accepted to satisfy :class:`Renderable`; a block is already laid
+            out, so it is not consulted.
+
+        Returns
+        -------
+        Rendered
+            A copy of this block.
+        """
         return Rendered(list(self.lines))
 
     def push(self, line: IntoLine) -> None:
@@ -143,7 +159,7 @@ class Rendered(Renderable):
         return len(self.lines)
 
     def plain(self) -> str:
-        """Returns the block's text without styling, lines joined by ``\\n``."""
+        r"""Returns the block's text without styling, lines joined by ``\n``."""
         return "\n".join(line.plain() for line in self.lines)
 
 
@@ -224,13 +240,17 @@ def _color_sgr(resolved: ResolvedColor, *, background: bool) -> str:
             return f"{lead};5;{palette_index}"
 
 
+# Palette indices at or above this use the bright SGR range.
+_ANSI_BRIGHT_OFFSET = 8
+
+
 def _ansi16_sgr(index: int, *, background: bool) -> str:
     """Builds the SGR fragment for a 16-color palette index."""
-    if index < 8:
+    if index < _ANSI_BRIGHT_OFFSET:
         base = 40 if background else 30
         return str(base + index)
     base = 100 if background else 90
-    return str(base + index - 8)
+    return str(base + index - _ANSI_BRIGHT_OFFSET)
 
 
 def _wrap_link(content: str, link: str | None) -> str:

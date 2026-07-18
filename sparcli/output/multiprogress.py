@@ -1,6 +1,6 @@
 """
 sparcli.output.multiprogress
-=============================
+============================
 
 Defines :class:`MultiProgress`, several progress bars updated together.
 
@@ -13,11 +13,14 @@ erases itself when the session ends instead of leaving the final bars behind.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
+from sparcli.core.inplace import InPlace
 from sparcli.core.render import Rendered
-from sparcli.core.text import Line
-from sparcli.output.live import InPlace
-from sparcli.output.progress import ProgressBar
+
+if TYPE_CHECKING:
+    from sparcli.core.text import Line
+    from sparcli.output.progress import ProgressBar
 
 
 @dataclass(slots=True)

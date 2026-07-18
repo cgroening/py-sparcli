@@ -1,6 +1,6 @@
 """
 sparcli.output.progress
-========================
+=======================
 
 Defines progress bars with multiple styles and threshold-based coloring.
 
@@ -8,7 +8,7 @@ A :class:`ProgressBar` renders a fixed-width bar of filled and empty cells with
 an optional label, caps, percentage and value suffix. The static
 :meth:`ProgressBar.bar` builds the line without touching the terminal, while
 :meth:`ProgressBar.draw` redraws it in place via
-:class:`~sparcli.output.live.InPlace`. A :class:`Thresholds` value switches the
+:class:`~sparcli.core.inplace.InPlace`. A :class:`Thresholds` value switches the
 fill color as the completion ratio crosses configured cut-off points.
 """
 
@@ -19,11 +19,11 @@ import math
 from dataclasses import dataclass
 
 from sparcli.core.color import Color
+from sparcli.core.inplace import InPlace
 from sparcli.core.render import Rendered
 from sparcli.core.style import Style
 from sparcli.core.text import Line, Span
 from sparcli.core.theme import theme
-from sparcli.output.live import InPlace
 
 # Default bar width in columns.
 DEFAULT_WIDTH = 30
@@ -73,89 +73,129 @@ class Thresholds:
     high_color: Color
 
 
+@dataclass(slots=True)
+class ProgressOpts:
+    """
+    The appearance settings of a :class:`ProgressBar`.
+
+    Bundled into one object so the bar itself holds only this and its draw
+    engine, the same way :class:`~sparcli.output.table.table.Table` delegates
+    to ``TableOpts``.
+
+    Attributes
+    ----------
+    style : ProgressStyle
+        Which glyph pair fills and pads the bar.
+    left_cap, right_cap : str
+        Strings drawn immediately before and after the bar.
+    fill_color : Color
+        Color of the filled portion, unless ``thresholds`` overrides it.
+    empty_color : Color
+        Color of the unfilled portion.
+    thresholds : Thresholds | None
+        Ratio-dependent fill colors, or ``None`` for a single color.
+    show_percent : bool
+        Whether the ``nn%`` suffix is shown.
+    show_value : bool
+        Whether the ``(value/total)`` suffix is shown.
+    width : int
+        Bar width in columns.
+    label : str
+        Leading label, empty for none.
+    label_style : Style
+        Style of the label and the suffixes.
+    """
+
+    style: ProgressStyle
+    left_cap: str
+    right_cap: str
+    fill_color: Color
+    empty_color: Color
+    thresholds: Thresholds | None
+    show_percent: bool
+    show_value: bool
+    width: int
+    label: str
+    label_style: Style
+
+    @classmethod
+    def defaults(cls) -> ProgressOpts:
+        """Returns the theme-derived default appearance."""
+        active = theme()
+        return cls(
+            style=ProgressStyle.BLOCK,
+            left_cap="",
+            right_cap="",
+            fill_color=active.accent,
+            empty_color=Color.DARK_GRAY,
+            thresholds=None,
+            show_percent=True,
+            show_value=False,
+            width=DEFAULT_WIDTH,
+            label="",
+            label_style=active.secondary,
+        )
+
+
 class ProgressBar:
     """A configurable, single-line progress bar."""
 
-    __slots__ = (
-        "_style",
-        "_left_cap",
-        "_right_cap",
-        "_fill_color",
-        "_empty_color",
-        "_thresholds",
-        "_show_percent",
-        "_show_value",
-        "_width",
-        "_label",
-        "_label_style",
-        "_inplace",
-    )
+    __slots__ = ("_inplace", "_opts")
 
     def __init__(self, *, inplace: InPlace | None = None) -> None:
-        active = theme()
-        self._style = ProgressStyle.BLOCK
-        self._left_cap = ""
-        self._right_cap = ""
-        self._fill_color = active.accent
-        self._empty_color = Color.DARK_GRAY
-        self._thresholds: Thresholds | None = None
-        self._show_percent = True
-        self._show_value = False
-        self._width = DEFAULT_WIDTH
-        self._label = ""
-        self._label_style = active.secondary
+        self._opts = ProgressOpts.defaults()
         self._inplace = inplace
 
     def style(self, style: ProgressStyle) -> ProgressBar:
         """Sets the bar style and returns the bar."""
-        self._style = style
+        self._opts.style = style
         return self
 
     def caps(self, left: str, right: str) -> ProgressBar:
         """Sets the left and right cap strings and returns the bar."""
-        self._left_cap = left
-        self._right_cap = right
+        self._opts.left_cap = left
+        self._opts.right_cap = right
         return self
 
     def fill_color(self, color: Color) -> ProgressBar:
         """Sets the fill color and returns the bar."""
-        self._fill_color = color
+        self._opts.fill_color = color
         return self
 
     def thresholds(self, thresholds: Thresholds) -> ProgressBar:
         """Sets threshold-based fill colors and returns the bar."""
-        self._thresholds = thresholds
+        self._opts.thresholds = thresholds
         return self
 
     def show_percent(self, show: bool) -> ProgressBar:
         """Toggles the percentage suffix and returns the bar."""
-        self._show_percent = show
+        self._opts.show_percent = show
         return self
 
     def show_value(self, show: bool) -> ProgressBar:
         """Toggles the ``(value/total)`` suffix and returns the bar."""
-        self._show_value = show
+        self._opts.show_value = show
         return self
 
     def width(self, width: int) -> ProgressBar:
         """Sets the bar width in columns (at least one) and returns the bar."""
-        self._width = max(width, 1)
+        self._opts.width = max(width, 1)
         return self
 
     def label(self, label: str) -> ProgressBar:
         """Sets a leading label and returns the bar."""
-        self._label = label
+        self._opts.label = label
         return self
 
     def bar(self, value: float, total: float) -> Rendered:
         """Builds the bar as a single rendered line for the given progress."""
         ratio = _ratio_of(value, total)
-        filled = min(_round_half_up(ratio * self._width), self._width)
-        empty = self._width - filled
-        fill_glyph, empty_glyph = _PROGRESS_GLYPHS[self._style]
+        filled = min(_round_half_up(ratio * self._opts.width), self._opts.width)
+        empty = self._opts.width - filled
+        fill_glyph, empty_glyph = _PROGRESS_GLYPHS[self._opts.style]
         spans: list[Span] = []
         self._push_label(spans)
-        self._push_cap(spans, self._left_cap)
+        self._push_cap(spans, self._opts.left_cap)
         spans.append(
             Span.styled(
                 fill_glyph * filled,
@@ -164,10 +204,10 @@ class ProgressBar:
         )
         spans.append(
             Span.styled(
-                empty_glyph * empty, Style.new().with_fg(self._empty_color)
+                empty_glyph * empty, Style.new().with_fg(self._opts.empty_color)
             )
         )
-        self._push_cap(spans, self._right_cap)
+        self._push_cap(spans, self._opts.right_cap)
         self._push_suffix(spans, ratio, value, total)
         return Rendered([Line(spans)])
 
@@ -183,9 +223,9 @@ class ProgressBar:
 
     def _resolve_fill_color(self, ratio: float) -> Color:
         """Resolves the fill color for ``ratio``, honoring thresholds."""
-        bounds = self._thresholds
+        bounds = self._opts.thresholds
         if bounds is None:
-            return self._fill_color
+            return self._opts.fill_color
         if ratio >= bounds.high:
             return bounds.high_color
         if ratio >= bounds.mid:
@@ -194,8 +234,10 @@ class ProgressBar:
 
     def _push_label(self, spans: list[Span]) -> None:
         """Pushes the leading label span, if any."""
-        if self._label:
-            spans.append(Span.styled(f"{self._label} ", self._label_style))
+        if self._opts.label:
+            spans.append(
+                Span.styled(f"{self._opts.label} ", self._opts.label_style)
+            )
 
     def _push_cap(self, spans: list[Span], cap: str) -> None:
         """Pushes a cap span, if non-empty."""
@@ -206,12 +248,14 @@ class ProgressBar:
         self, spans: list[Span], ratio: float, value: float, total: float
     ) -> None:
         """Pushes the percentage and/or value suffix."""
-        if self._show_percent:
+        if self._opts.show_percent:
             percent = _round_half_up(ratio * 100.0)
-            spans.append(Span.styled(f" {percent:>3}%", self._label_style))
-        if self._show_value:
+            spans.append(Span.styled(f" {percent:>3}%", self._opts.label_style))
+        if self._opts.show_value:
             spans.append(
-                Span.styled(f" ({value:.0f}/{total:.0f})", self._label_style)
+                Span.styled(
+                    f" ({value:.0f}/{total:.0f})", self._opts.label_style
+                )
             )
 
     def _ensure_inplace(self) -> InPlace:

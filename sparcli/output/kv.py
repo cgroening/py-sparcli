@@ -39,14 +39,14 @@ class KeyValue(Renderable):
     """A list of aligned key-value pairs."""
 
     __slots__ = (
+        "_item_gap",
+        "_key_style",
+        "_key_width",
+        "_margin",
         "_pairs",
         "_separator",
-        "_key_width",
-        "_key_style",
         "_value_style",
-        "_item_gap",
         "_wrap_values",
-        "_margin",
     )
 
     def __init__(
@@ -114,7 +114,19 @@ class KeyValue(Renderable):
         return self
 
     def render(self, max_width: int) -> Rendered:
-        """Renders the aligned pairs into at most ``max_width`` columns."""
+        """
+        Renders the aligned pairs into at most ``max_width`` columns.
+
+        Parameters
+        ----------
+        max_width : int
+            The number of columns available for the block.
+
+        Returns
+        -------
+        Rendered
+            The laid-out block of styled lines.
+        """
         key_width = self._resolved_key_width()
         prefix_width = key_width + visible_width(self._separator)
         value_width = max(_MIN_VALUE_WIDTH, max_width - prefix_width)

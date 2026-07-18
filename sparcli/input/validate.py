@@ -1,6 +1,6 @@
 """
 sparcli.input.validate
-=====================
+======================
 
 Defines validation callbacks and character filters for text prompts.
 

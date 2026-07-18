@@ -1,6 +1,6 @@
 """
 sparcli.core.theme
-=================
+==================
 
 Defines the unified :class:`Theme` shared by output widgets and input prompts.
 
@@ -22,6 +22,11 @@ from sparcli.core.style import Style
 DEFAULT_ACCENT = Color.rgb(137, 180, 250)
 
 _TITLE = Style.from_color(DEFAULT_ACCENT).bold()
+_SUCCESS = Style.from_color(Color.GREEN)
+_ERROR = Style.from_color(Color.RED)
+_WARNING = Style.from_color(Color.YELLOW)
+_INFO = Style.from_color(DEFAULT_ACCENT)
+_DEBUG = Style.from_color(Color.MAGENTA)
 _SECONDARY = Style.new().dim()
 _SELECTION = Style.from_color(DEFAULT_ACCENT).bold()
 _CURSOR = Style.new().with_fg(Color.BLACK).with_bg(DEFAULT_ACCENT)
@@ -43,7 +48,8 @@ class Theme:
     ----------
     accent : Color
         The single highlight color for titles, selections and active items.
-    title, heading, secondary, success, error, warning, info, debug, hint : Style
+    title, heading, secondary, success, error, warning, info, debug, \
+    hint : Style
         Semantic styles applied throughout the library.
     selection, cursor : Style
         Styles for the highlighted item and the text cursor.
@@ -57,11 +63,11 @@ class Theme:
     title: Style = _TITLE
     heading: Style = _TITLE
     secondary: Style = _SECONDARY
-    success: Style = Style.from_color(Color.GREEN)
-    error: Style = Style.from_color(Color.RED)
-    warning: Style = Style.from_color(Color.YELLOW)
-    info: Style = Style.from_color(DEFAULT_ACCENT)
-    debug: Style = Style.from_color(Color.MAGENTA)
+    success: Style = _SUCCESS
+    error: Style = _ERROR
+    warning: Style = _WARNING
+    info: Style = _INFO
+    debug: Style = _DEBUG
     hint: Style = _SECONDARY
     selection: Style = _SELECTION
     cursor: Style = _CURSOR
@@ -112,6 +118,7 @@ def set_theme(new_theme: Theme) -> None:
     new_theme : Theme
         The theme to install. Widget options still override individual values.
     """
-    global _current
+    # A single process-wide theme drives both input and output.
+    global _current  # noqa: PLW0603
     with _lock:
         _current = new_theme

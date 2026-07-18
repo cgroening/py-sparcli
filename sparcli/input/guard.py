@@ -15,9 +15,12 @@ from __future__ import annotations
 
 import logging
 import sys
-from types import TracebackType
+from typing import TYPE_CHECKING
 
 from sparcli.core import cursor
+
+if TYPE_CHECKING:
+    from types import TracebackType
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +31,7 @@ _DISABLE_PASTE = "\x1b[?2004l"
 class TerminalGuard:
     """Enables raw mode for its lifetime and restores the terminal on exit."""
 
-    __slots__ = ("_fd", "_saved", "_paste")
+    __slots__ = ("_fd", "_paste", "_saved")
 
     def __init__(self) -> None:
         self._fd: int = -1

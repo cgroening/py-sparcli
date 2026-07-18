@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from sparcli.input.calc import (
@@ -17,7 +19,9 @@ from sparcli.input.event import (
     ScriptedSource,
 )
 from sparcli.input.number import NumberInput
-from sparcli.input.outcome import Outcome
+
+if TYPE_CHECKING:
+    from sparcli.input.outcome import Outcome
 
 
 def _run(prompt: NumberInput, codes: list[KeyCode]) -> Outcome[float]:

@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Coverage gate: `pytest` now measures branch coverage of `sparcli` and fails below the configured threshold.
+- `justfile` with the full quality gate (`just check` runs lint, format, types, tests and `pip-audit`).
+- Direct test coverage for `output/box.py`, `output/table/plan.py`, the key decoding primitives, persisted history and the external editor/pager command handling.
+
+### Changed
+
+- The Ruff rule set now covers the full documented list (docstrings, annotations, complexity, security, pathlib, pytest and more) instead of nine groups; every exception carries a comment explaining why.
+- `InPlace` moved from `sparcli.output.live` to `sparcli.core.inplace` so that `input` no longer depends on `output`. It is still re-exported from `sparcli.output.live` and the flat `sparcli` namespace, so imports keep working.
+- `TextInput` delegates suggestion handling to `sparcli.input.completion.Completion` and history recall to `sparcli.input.recall.HistoryRecall`. Public behavior and the builder API are unchanged.
+- The list prompts share `sparcli.input.selection` for cursor movement, scrolling and result collection; the free-text prompts share the Ctrl-key tables and the caret keys from `sparcli.input.line_edit`.
+- `ProgressBar` keeps its appearance in a `ProgressOpts` value object, mirroring how `Table` uses `TableOpts`.
+- The byte-level primitives behind the terminal event source live in `sparcli.input.keydecode`.
+
+### Fixed
+
+- `$EDITOR`, `$VISUAL` and `$PAGER` are split with `shlex` instead of `str.split`, so an editor or pager path containing spaces no longer breaks into invalid arguments.
+- A pager that cannot be spawned now raises `TerminalError` instead of a bare `FileNotFoundError`, matching how the editor already behaved.
+- The history state directory is resolved to an absolute path, and an application name containing a path separator or `..` is rejected instead of being written outside the state directory.
+
 ## [0.3.0] – 2026-07-11
 
 ### Added

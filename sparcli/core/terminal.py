@@ -118,7 +118,7 @@ def _no_tty_override() -> bool:
 def _env_enabled(key: str) -> bool:
     """Returns whether an env var is set to a non-empty value other than '0'."""
     value = os.environ.get(key)
-    return value is not None and value != "" and value != "0"
+    return value is not None and value not in {"", "0"}
 
 
 def _colorterm_truecolor() -> bool:

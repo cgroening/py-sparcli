@@ -9,7 +9,7 @@ notice and exits cleanly when standard input or output is redirected.
 from __future__ import annotations
 
 import sys
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from sparcli import (
     Confirm,
@@ -29,6 +29,9 @@ from sparcli import (
     shortcut,
     validate,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class _Block(Renderable):

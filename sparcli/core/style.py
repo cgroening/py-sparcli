@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import enum
 from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
 
-from sparcli.core.color import Color
+if TYPE_CHECKING:
+    from sparcli.core.color import Color
 
 
 class Attribute(enum.IntFlag):

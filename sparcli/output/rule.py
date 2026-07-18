@@ -13,13 +13,17 @@ it entirely. Both a keyword constructor and fluent builders are provided.
 
 from __future__ import annotations
 
-from sparcli.core.border import BorderType
+from typing import TYPE_CHECKING
+
 from sparcli.core.geometry import Align, Edges
 from sparcli.core.render import Renderable, Rendered
-from sparcli.core.style import Style
 from sparcli.core.text import IntoText, Line, Span, Text, into_text
 from sparcli.core.theme import theme
 from sparcli.output.compose import pad
+
+if TYPE_CHECKING:
+    from sparcli.core.border import BorderType
+    from sparcli.core.style import Style
 
 _DEFAULT_PAD = 1
 _CONNECTOR = 1
@@ -29,13 +33,13 @@ class Rule(Renderable):
     """A horizontal divider line, optionally labelled with a title."""
 
     __slots__ = (
-        "_title",
-        "_border",
-        "_style",
         "_align",
-        "_width",
+        "_border",
         "_margin",
         "_pad",
+        "_style",
+        "_title",
+        "_width",
     )
 
     def __init__(
@@ -88,7 +92,19 @@ class Rule(Renderable):
         return self
 
     def render(self, max_width: int) -> Rendered:
-        """Renders the rule into at most ``max_width`` columns."""
+        """
+        Renders the rule into at most ``max_width`` columns.
+
+        Parameters
+        ----------
+        max_width : int
+            The number of columns available for the block.
+
+        Returns
+        -------
+        Rendered
+            The laid-out block of styled lines.
+        """
         total = self._width if self._width is not None else max_width
         inner = max(0, total - self._margin.horizontal())
         glyph = self._border.chars().horizontal

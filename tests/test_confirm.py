@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sparcli.input.confirm import Confirm
 from sparcli.input.event import (
     InputEvent,
@@ -9,8 +11,10 @@ from sparcli.input.event import (
     KeyPress,
     ScriptedSource,
 )
-from sparcli.input.outcome import Outcome
 from sparcli.input.shortcut import Shortcut
+
+if TYPE_CHECKING:
+    from sparcli.input.outcome import Outcome
 
 
 def _run(prompt: Confirm, codes: list[KeyCode]) -> Outcome[bool]:

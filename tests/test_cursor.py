@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -10,6 +10,9 @@ from sparcli.core import cursor
 from sparcli.core.render import Rendered
 from sparcli.core.text import Line
 from sparcli.output.live import InPlace
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 HIDE = "\x1b[?25l"
 SHOW = "\x1b[?25h"

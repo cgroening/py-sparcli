@@ -1,6 +1,6 @@
 """
 sparcli.output.box
-=================
+==================
 
 Shared box-drawing routine used by :class:`~sparcli.output.panel.Panel` and
 :class:`~sparcli.output.alert.Alert`.

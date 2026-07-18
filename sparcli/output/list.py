@@ -14,16 +14,20 @@ the content with a hanging indent, and nested sub-lists added via
 from __future__ import annotations
 
 import enum
-from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from sparcli.core.geometry import Align, Edges
 from sparcli.core.render import Renderable, Rendered
-from sparcli.core.style import Style
 from sparcli.core.text import IntoText, Line, Span, Text, into_text
 from sparcli.core.theme import theme
 from sparcli.core.width import visible_width
 from sparcli.output.layout import blank_line, pad_line, space_span
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from sparcli.core.style import Style
 
 # Alphabet size for bijective base-26 alphabetic markers.
 _ALPHA_BASE = 26
@@ -79,14 +83,14 @@ class List(Renderable):
     """A bulleted or ordered list with optional nesting."""
 
     __slots__ = (
-        "_marker",
-        "_items",
-        "_marker_style",
         "_bullet",
-        "_suffix",
         "_indent",
         "_item_gap",
+        "_items",
         "_margin",
+        "_marker",
+        "_marker_style",
+        "_suffix",
     )
 
     def __init__(
@@ -167,7 +171,19 @@ class List(Renderable):
         return self
 
     def render(self, max_width: int) -> Rendered:
-        """Renders the list; ``max_width`` is accepted but not constraining."""
+        """
+        Renders the list; ``max_width`` is accepted but not constraining.
+
+        Parameters
+        ----------
+        max_width : int
+            The number of columns available for the block.
+
+        Returns
+        -------
+        Rendered
+            The laid-out block of styled lines.
+        """
         del max_width
         return self._apply_margin(Rendered(self._render_lines()))
 
@@ -231,7 +247,8 @@ class List(Renderable):
         if item.children is None:
             return
         hang = self._indent + label_width
-        for child_line in item.children._render_lines():
+        # Same-class recursion: a nested List renders itself.
+        for child_line in item.children._render_lines():  # noqa: SLF001
             spans: list[Span] = [Span.raw(" " * hang)]
             spans.extend(child_line.spans)
             lines.append(Line(spans))

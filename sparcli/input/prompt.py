@@ -1,6 +1,6 @@
 """
 sparcli.input.prompt
-===================
+====================
 
 Defines the shared prompt driver: render a frame, read an event, repeat.
 
@@ -8,21 +8,32 @@ Defines the shared prompt driver: render a frame, read an event, repeat.
 render callback and an event handler. The handler returns a :class:`Flow`
 telling the loop what to do next: keep going, submit a value, cancel, fire a
 shortcut, or refresh after an external program drew over the screen. Drawing
-goes through :class:`~sparcli.output.live.InPlace`, so the loop is a no-op for
+goes through :class:`~sparcli.core.inplace.InPlace`, so the loop is a no-op for
 non-interactive sources.
+
+:func:`run_on_terminal` is the matching entry point for the public ``run()``
+methods: it guards on an interactive terminal and wraps the loop in a
+:class:`~sparcli.input.guard.TerminalGuard`.
 """
 
 from __future__ import annotations
 
 import enum
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
-from sparcli.core.render import Rendered
-from sparcli.input.event import EventSource, InputEvent
+from sparcli.core.inplace import InPlace
+from sparcli.core.terminal import is_input_tty
+from sparcli.errors import NoTerminalError
+from sparcli.input.event import EventSource, TerminalSource
+from sparcli.input.guard import TerminalGuard
 from sparcli.input.outcome import Outcome
-from sparcli.output.live import InPlace
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from sparcli.core.render import Rendered
+    from sparcli.input.event import InputEvent
 
 
 class FlowKind(enum.Enum):
@@ -132,3 +143,33 @@ def run_prompt[S, T](
             return Outcome.shortcut(flow.shortcut_id or 0)
         inplace.finish()
         return Outcome.cancelled()
+
+
+def run_on_terminal[T](
+    run_with: Callable[[EventSource], Outcome[T]],
+) -> Outcome[T]:
+    """
+    Runs ``run_with`` against the real terminal, guarded and restored.
+
+    Every public ``run()`` method funnels through here so the terminal check
+    and the RAII guard exist exactly once.
+
+    Parameters
+    ----------
+    run_with : Callable[[EventSource], Outcome[T]]
+        The prompt's own ``run_with`` method.
+
+    Returns
+    -------
+    Outcome[T]
+        Whatever the prompt loop produced.
+
+    Raises
+    ------
+    NoTerminalError
+        If standard input or output is not an interactive terminal.
+    """
+    if not is_input_tty():
+        raise NoTerminalError
+    with TerminalGuard():
+        return run_with(TerminalSource())

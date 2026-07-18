@@ -27,10 +27,10 @@ Requirements for all future sessions in this project. On conflict, this file tak
 
 ## Architecture (keep the layers strictly separated)
 
-- `core/` – foundation: style, color, text, render, geometry, border, theme, width, terminal, markup. No widget logic.
+- `core/` – foundation: style, color, text, render, geometry, border, theme, width, terminal, markup, `inplace` (the redraw engine). No widget logic.
 - `output/` – printable widgets, subclass `Renderable` (`render(max_width) -> Rendered`). Shared helpers: `layout`, `compose`, `box`, `live`.
-- `input/` – interactive prompts over `EventSource` (DI) + the `prompt.run_prompt` loop + `line_edit.LineEditor` (SSOT for text editing) + `field` (rendering).
-- **Dependency direction:** `output`/`input` → `core`. Never cyclic, never `core` → widget layer.
+- `input/` – interactive prompts over `EventSource` (DI) + the `prompt.run_prompt` loop and `prompt.run_on_terminal` guard + `line_edit.LineEditor` (SSOT for text editing, plus the shared `CTRL_ACTIONS` tables and `apply_caret_key`) + `field` (rendering). The prompts are composed from small collaborators: `completion.Completion`, `recall.HistoryRecall`, `selection.SelectionCursor` and the `keydecode` byte primitives.
+- **Dependency direction:** `output`/`input` → `core`. Never cyclic, never `core` → widget layer, and never `input` → `output` (this is why `InPlace` lives in `core/inplace.py`; `output/live.py` re-exports it for the public API).
 - **A single unified theme** in `core/theme.py` drives both input and output.
 - The public API is re-exported flat (`from sparcli import ...`, 80 symbols) plus the namespaces `sparcli.width/terminal/markup/event/validate/shortcut`. Every `__init__.py` carries an explicit `__all__` list.
 
@@ -47,17 +47,26 @@ Requirements for all future sessions in this project. On conflict, this file tak
 ## Style & tooling
 
 - Target Python: **3.12+** (`requires-python = ">=3.12"`).
-- **Strings: double quotes `"..."`** – a deliberate, user-mandated deviation from the style-guide default (§12.5). Enforced via `[tool.ruff.format] quote-style = "double"`. Exceptions that stay single-quoted: string literals nested inside a double-quoted f-string (`';'`, `' '`) and `repr` outputs in doctests.
-- **Formatting/linting:** `ruff` (format + lint). 80-character lines. Imports isort-sorted (stdlib → third-party → local). `from __future__ import annotations` as the first line of every module.
+- **Strings: double quotes `"..."`** everywhere, including nested inside f-strings (PEP 701). Enforced via the `Q` lint rules with `inline-quotes = "double"` and `avoid-escape = false`; the formatter uses `quote-style = "preserve"` so it cannot rewrite the nested case back to single quotes. `repr` outputs in doctests keep their single quotes, because that is what Python prints.
+- **Formatting/linting:** `ruff` (format + lint), running the full rule set from the style guide. 80-character lines, enforced (`E501` is on). Imports isort-sorted (stdlib → third-party → local). `from __future__ import annotations` as the first line of every module. Every entry in the `ignore` list carries a comment saying why.
+- **Docstrings:** NumPy convention. The fluent builder setters keep a single-line docstring instead of full `Parameters`/`Returns` blocks – they take one argument and return `self`, so the blocks would add length without information. Full blocks are required everywhere else.
 - **Type checking:** `basedpyright` in **strict** mode must report 0 errors. Complete, modern type hints (`X | None`, builtin generics, PEP 695).
 - No em dash; straight quotes/apostrophes; named constants instead of magic numbers/strings.
 
 Commands (from the project root):
 
 ```bash
+just check      # the full gate: lint, format, types, tests, pip-audit
+just fix        # ruff check --fix . && ruff format .
+```
+
+Individually, if `just` is unavailable:
+
+```bash
 ruff check --fix . && ruff format .
 basedpyright sparcli examples
-python -m pytest -q
+python -m pytest -q          # includes doctests and the branch-coverage gate
+pip-audit .
 ```
 
 ## API conventions (idiomatic)
@@ -91,6 +100,8 @@ python -m pytest -q
 - Doctests in `# Examples` count as tests (`--doctest-modules`) and must pass. `repr` expected-outputs keep single quotes.
 - Test override: `SPARCLI_NO_TTY=1` forces non-TTY.
 - **Run all tests after every change** and keep ruff + basedpyright clean.
+- Shared helpers and fixtures live in `tests/conftest.py` (`plain_lines`, `joined`, `render_to_string`, the theme reset and the `state_home` fixture). Import them as `from conftest import ...`.
+- Branch coverage is measured on every run and gated by `fail_under` in `[tool.coverage.report]`. Do not lower it to make a change pass.
 
 ## Environment variables
 

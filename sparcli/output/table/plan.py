@@ -1,6 +1,6 @@
 """
 sparcli.output.table.plan
-==========================
+=========================
 
 Resolves table rows into a grid and computes each column's display width.
 
@@ -129,7 +129,7 @@ class ShrinkPass(enum.Enum):
 class _Fitter:
     """Shrinks flexible columns until the table fits a maximum width."""
 
-    __slots__ = ("columns", "widths", "pad")
+    __slots__ = ("columns", "pad", "widths")
 
     def __init__(
         self, columns: list[Column], widths: list[int], pad: int

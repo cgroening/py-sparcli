@@ -1,6 +1,6 @@
 """
 sparcli.output.alert
-===================
+====================
 
 Defines :class:`Alert`, a bordered callout with a semantic icon and color.
 
@@ -12,12 +12,15 @@ kind's accent color. Convenience constructors cover the common kinds.
 from __future__ import annotations
 
 import enum
+from typing import TYPE_CHECKING
 
 from sparcli.core.render import Renderable, Rendered
-from sparcli.core.style import Style
 from sparcli.core.text import IntoText, Line, Span, Text, into_text
 from sparcli.core.theme import Theme, theme
 from sparcli.output.box import BoxOpts, draw_box
+
+if TYPE_CHECKING:
+    from sparcli.core.style import Style
 
 
 class AlertKind(enum.Enum):
@@ -32,7 +35,7 @@ class AlertKind(enum.Enum):
 
 # Per-kind (unicode icon, ascii icon).
 _ICONS: dict[AlertKind, tuple[str, str]] = {
-    AlertKind.INFO: ("ℹ", "i"),
+    AlertKind.INFO: ("ℹ", "i"),  # noqa: RUF001
     AlertKind.DEBUG: ("⚙", "*"),
     AlertKind.WARNING: ("⚠", "!"),
     AlertKind.ERROR: ("✖", "x"),
@@ -55,7 +58,7 @@ def _kind_style(kind: AlertKind, active: Theme) -> Style:
 class Alert(Renderable):
     """A bordered callout carrying a semantic icon and color."""
 
-    __slots__ = ("_kind", "_content")
+    __slots__ = ("_content", "_kind")
 
     def __init__(self, kind: AlertKind, content: IntoText) -> None:
         self._kind = kind
@@ -87,7 +90,19 @@ class Alert(Renderable):
         return cls(AlertKind.SUCCESS, content)
 
     def render(self, max_width: int) -> Rendered:
-        """Renders the alert into at most ``max_width`` columns."""
+        """
+        Renders the alert into at most ``max_width`` columns.
+
+        Parameters
+        ----------
+        max_width : int
+            The number of columns available for the block.
+
+        Returns
+        -------
+        Rendered
+            The laid-out block of styled lines.
+        """
         active = theme()
         style = _kind_style(self._kind, active)
         icon = _ICONS[self._kind][0 if active.unicode else 1]

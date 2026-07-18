@@ -1,6 +1,6 @@
 """
 sparcli.output
-=============
+==============
 
 Printable widgets that render styled blocks to the terminal.
 

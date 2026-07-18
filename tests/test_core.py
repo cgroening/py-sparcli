@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import io
+from typing import TYPE_CHECKING
 
-import pytest
+from conftest import render_to_string
 
 from sparcli.core.color import Color
 from sparcli.core.markup import markup_print, markup_println, parse
-from sparcli.core.render import Rendered, write_rendered
+from sparcli.core.render import Rendered
 from sparcli.core.style import Attribute, Style
 from sparcli.core.terminal import (
     ColorSupport,
@@ -26,12 +26,8 @@ from sparcli.core.width import (
     wrap,
 )
 
-
-def render_to_string(rendered: Rendered, support: ColorSupport) -> str:
-    """Renders a block to a string for assertions."""
-    buffer = io.StringIO()
-    write_rendered(buffer, rendered, support)
-    return buffer.getvalue()
+if TYPE_CHECKING:
+    import pytest
 
 
 class TestColor:

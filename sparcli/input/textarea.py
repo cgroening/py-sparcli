@@ -16,15 +16,13 @@ cursor on the caret's line that is dropped on the final frame.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from sparcli.core.render import Rendered
 from sparcli.core.style import Style
-from sparcli.core.terminal import is_input_tty
 from sparcli.core.text import Line
 from sparcli.core.theme import theme
-from sparcli.errors import NoTerminalError, SparcliError
-from sparcli.input.editor import edit_text, suspended_raw_mode
+from sparcli.input.editor import edit_or_none
 from sparcli.input.event import (
     EventKind,
     EventSource,
@@ -32,13 +30,17 @@ from sparcli.input.event import (
     KeyCode,
     KeyKind,
     KeyPress,
-    TerminalSource,
 )
 from sparcli.input.field import field_line
-from sparcli.input.guard import TerminalGuard
-from sparcli.input.line_edit import LineEditor
-from sparcli.input.outcome import Outcome
-from sparcli.input.prompt import Flow, run_prompt
+from sparcli.input.line_edit import (
+    CTRL_ACTIONS,
+    LineEditor,
+    apply_caret_key,
+)
+from sparcli.input.prompt import Flow, run_on_terminal, run_prompt
+
+if TYPE_CHECKING:
+    from sparcli.input.outcome import Outcome
 
 logger = logging.getLogger(__name__)
 
@@ -51,17 +53,6 @@ _EDITOR_SUFFIX = ".md"
 _SUBMIT_KEY = "d"
 # Ctrl-letter that opens the external editor.
 _EDITOR_KEY = "g"
-
-# Ctrl-letter editing operations shared with the single-line text input.
-_CTRL_OPS: dict[str, Callable[[LineEditor], None]] = {
-    "a": LineEditor.select_all,
-    "w": LineEditor.delete_word_back,
-    "u": LineEditor.kill_to_line_start,
-    "k": LineEditor.kill_to_line_end,
-    "c": LineEditor.copy,
-    "x": LineEditor.cut,
-    "v": LineEditor.paste,
-}
 
 
 class Textarea:
@@ -80,7 +71,7 @@ class Textarea:
     2
     """
 
-    __slots__ = ("_prompt", "_initial", "_editor_enabled", "_editor_command")
+    __slots__ = ("_editor_command", "_editor_enabled", "_initial", "_prompt")
 
     def __init__(
         self,
@@ -125,10 +116,7 @@ class Textarea:
         NoTerminalError
             If standard input or output is not an interactive terminal.
         """
-        if not is_input_tty():
-            raise NoTerminalError()
-        with TerminalGuard():
-            return self.run_with(TerminalSource())
+        return run_on_terminal(self.run_with)
 
     def run_with(self, source: EventSource) -> Outcome[str]:
         """
@@ -194,14 +182,16 @@ class Textarea:
             return _StrFlow.submit(editor.value())
         if ch == _EDITOR_KEY and self._editor_enabled:
             return self._launch_editor(editor)
-        operation = _CTRL_OPS.get(ch)
+        operation = CTRL_ACTIONS.get(ch)
         if operation is not None:
             operation(editor)
         return _StrFlow.cont()
 
     def _launch_editor(self, editor: LineEditor) -> Flow[str]:
         """Opens the buffer in an external editor, then refreshes."""
-        text = _edit_externally(self._editor_command, editor.value())
+        text = edit_or_none(
+            self._editor_command, editor.value(), _EDITOR_SUFFIX
+        )
         if text is not None:
             editor.set_value(text.rstrip("\n"))
         return _StrFlow.refresh()
@@ -212,31 +202,11 @@ def _apply_edit(editor: LineEditor, key: KeyPress) -> None:
     code = key.code
     if code == KeyCode.ENTER:
         editor.insert_newline()
-    elif code == KeyCode.LEFT:
-        editor.move_left(select=key.shift)
-    elif code == KeyCode.RIGHT:
-        editor.move_right(select=key.shift)
     elif code == KeyCode.UP:
         editor.move_up(select=key.shift)
     elif code == KeyCode.DOWN:
         editor.move_down(select=key.shift)
-    elif code == KeyCode.HOME:
-        editor.move_home(select=key.shift)
-    elif code == KeyCode.END:
-        editor.move_end(select=key.shift)
-    elif code == KeyCode.BACKSPACE:
-        editor.backspace()
-    elif code == KeyCode.DELETE:
-        editor.delete()
+    elif apply_caret_key(editor, key, select=key.shift):
+        return
     elif code.kind is KeyKind.CHAR and code.ch is not None:
         editor.insert_char(code.ch)
-
-
-def _edit_externally(command: str | None, text: str) -> str | None:
-    """Edits ``text`` externally with raw mode suspended; ``None`` on error."""
-    try:
-        with suspended_raw_mode():
-            return edit_text(command, text, _EDITOR_SUFFIX)
-    except SparcliError as error:
-        logger.debug("external editor failed: %s", error)
-        return None

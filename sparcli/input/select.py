@@ -1,6 +1,6 @@
 """
 sparcli.input.select
-=====================
+====================
 
 Defines :class:`Select`, the single- and multi-selection list prompt.
 
@@ -8,33 +8,40 @@ A :class:`Select` shows a scrollable list of options and lets the user move a
 cursor, optionally toggle checkboxes (multi-select) and submit. It follows the
 shared prompt pattern: a kwargs constructor plus fluent builders, a
 :meth:`Select.run` guarded on an interactive terminal, and a
-:meth:`Select.run_with` that drives any :class:`~sparcli.input.event.EventSource`
-for headless tests. Navigation cycles by default and the visible window scrolls
-to keep the cursor on screen.
+:meth:`Select.run_with` that drives any
+:class:`~sparcli.input.event.EventSource` for headless tests. Navigation
+cycles by default and the visible window scrolls to keep the cursor on screen.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from sparcli.core.render import Rendered
 from sparcli.core.style import Style
-from sparcli.core.terminal import is_input_tty
 from sparcli.core.text import Line, Span
-from sparcli.core.theme import Theme, theme
-from sparcli.errors import NoTerminalError
-from sparcli.input.event import (
-    EventKind,
-    EventSource,
-    InputEvent,
-    KeyCode,
-    KeyPress,
-    TerminalSource,
-)
-from sparcli.input.guard import TerminalGuard
+from sparcli.core.theme import theme
+from sparcli.input.event import EventKind, KeyCode
 from sparcli.input.outcome import Outcome
-from sparcli.input.prompt import Flow, run_prompt
-from sparcli.input.shortcut import Shortcut, find, help_overlay, hint_line
+from sparcli.input.prompt import Flow, run_on_terminal, run_prompt
+from sparcli.input.selection import (
+    SelectionCursor,
+    checked_indices,
+    first_index,
+)
+from sparcli.input.shortcut import (
+    Shortcut,
+    find,
+    help_overlay,
+    hint_line,
+    opens_help,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from sparcli.core.theme import Theme
+    from sparcli.input.event import EventSource, InputEvent, KeyPress
 
 # Default number of visible rows.
 DEFAULT_VISIBLE = 10
@@ -46,19 +53,18 @@ _Flow = Flow[list[int]]
 _VIM_UP = KeyCode.char("k")
 _VIM_DOWN = KeyCode.char("j")
 _SPACE = KeyCode.char(" ")
-_HELP = KeyCode.char("?")
 
 
 class _State:
     """The mutable state of a running select prompt."""
 
-    __slots__ = ("cursor", "checked", "offset", "show_help")
+    __slots__ = ("checked", "cursor", "help", "offset")
 
     def __init__(self, cursor: int, checked: list[bool], offset: int) -> None:
         self.cursor = cursor
         self.checked = checked
         self.offset = offset
-        self.show_help = False
+        self.help = False
 
 
 class Select:
@@ -86,14 +92,13 @@ class Select:
     """
 
     __slots__ = (
-        "_prompt",
-        "_options",
-        "_multi",
-        "_max_visible",
-        "_cycle",
-        "_shortcuts",
-        "_initial_cursor",
+        "_cursor",
         "_initial_checked",
+        "_initial_cursor",
+        "_multi",
+        "_options",
+        "_prompt",
+        "_shortcuts",
     )
 
     def __init__(
@@ -111,8 +116,7 @@ class Select:
         self._prompt = prompt
         self._options = list(options)
         self._multi = multi
-        self._max_visible = max(max_visible, 1)
-        self._cycle = cycle
+        self._cursor = SelectionCursor(max_visible, cycle)
         self._shortcuts = list(shortcuts)
         self._initial_cursor = initial_cursor
         self._initial_checked = list(initial_checked)
@@ -129,12 +133,12 @@ class Select:
 
     def max_visible(self, rows: int) -> Select:
         """Sets the maximum number of visible rows and returns ``self``."""
-        self._max_visible = max(rows, 1)
+        self._cursor.max_visible = max(rows, 1)
         return self
 
     def no_cycle(self) -> Select:
         """Disables wrap-around navigation and returns ``self``."""
-        self._cycle = False
+        self._cursor.cycle = False
         return self
 
     def cursor(self, index: int) -> Select:
@@ -166,7 +170,7 @@ class Select:
         NoTerminalError
             If standard input or output is not an interactive terminal.
         """
-        return _first_index(self._run_collect())
+        return first_index(self._run_collect())
 
     def run_multi(self) -> Outcome[list[int]]:
         """
@@ -210,10 +214,7 @@ class Select:
 
     def _run_collect(self) -> Outcome[list[int]]:
         """Sets up the terminal and runs the prompt loop."""
-        if not is_input_tty():
-            raise NoTerminalError
-        with TerminalGuard():
-            return self.run_with(TerminalSource())
+        return run_on_terminal(self.run_with)
 
     def _initial_state(self) -> _State:
         """Builds the starting state from the initial cursor and checks."""
@@ -223,16 +224,16 @@ class Select:
         for index in self._initial_checked:
             if 0 <= index < length:
                 checked[index] = True
-        offset = max(cursor - (self._max_visible - 1), 0)
+        offset = self._cursor.opening_offset(cursor)
         return _State(cursor=cursor, checked=checked, offset=offset)
 
     def _render(self, state: _State, _final: bool) -> Rendered:
         """Builds the frame with the visible window of options."""
         active = theme()
-        if state.show_help:
+        if state.help:
             return Rendered(help_overlay(self._shortcuts))
         lines = [Line.styled(self._prompt, active.title)]
-        end = min(state.offset + self._max_visible, len(self._options))
+        end = min(state.offset + self._cursor.max_visible, len(self._options))
         for index in range(state.offset, end):
             lines.append(self._option_line(state, index, active))
         if self._shortcuts:
@@ -263,11 +264,11 @@ class Select:
 
     def _handle_key(self, state: _State, key: KeyPress) -> _Flow:
         """Handles a single key press."""
-        if state.show_help:
-            state.show_help = False
+        if state.help:
+            state.help = False
             return _Flow.cont()
-        if key.code == _HELP and self._shortcuts:
-            state.show_help = True
+        if opens_help(key, self._shortcuts):
+            state.help = True
             return _Flow.cont()
         shortcut_id = find(key, self._shortcuts)
         if shortcut_id is not None:
@@ -281,56 +282,25 @@ class Select:
 
     def _navigate(self, state: _State, code: KeyCode) -> None:
         """Applies a navigation or toggle key to the state."""
+        length = len(self._options)
+        page = self._cursor.max_visible
         if code in (KeyCode.UP, _VIM_UP):
-            self._move_cursor(state, -1)
+            self._cursor.move(state, -1, length)
         elif code in (KeyCode.DOWN, _VIM_DOWN):
-            self._move_cursor(state, 1)
+            self._cursor.move(state, 1, length)
         elif code == KeyCode.HOME:
-            self._set_cursor(state, 0)
+            self._cursor.set(state, 0)
         elif code == KeyCode.END:
-            self._set_cursor(state, len(self._options) - 1)
+            self._cursor.set(state, length - 1)
         elif code == KeyCode.PAGE_UP:
-            self._move_cursor(state, -self._max_visible)
+            self._cursor.move(state, -page, length)
         elif code == KeyCode.PAGE_DOWN:
-            self._move_cursor(state, self._max_visible)
+            self._cursor.move(state, page, length)
         elif code == _SPACE and self._multi:
             state.checked[state.cursor] = not state.checked[state.cursor]
 
     def _collect(self, state: _State) -> list[int]:
         """Returns the result indices for the current state."""
         if self._multi:
-            return [
-                index
-                for index in range(len(self._options))
-                if state.checked[index]
-            ]
+            return checked_indices(state.checked)
         return [state.cursor]
-
-    def _move_cursor(self, state: _State, delta: int) -> None:
-        """Moves the cursor by ``delta``, cycling or clamping per config."""
-        length = len(self._options)
-        if length == 0:
-            return
-        target = state.cursor + delta
-        if self._cycle:
-            target %= length
-        else:
-            target = max(0, min(target, length - 1))
-        self._set_cursor(state, target)
-
-    def _set_cursor(self, state: _State, index: int) -> None:
-        """Sets the cursor and scrolls so it stays visible."""
-        state.cursor = index
-        if index < state.offset:
-            state.offset = index
-        elif index >= state.offset + self._max_visible:
-            state.offset = index + 1 - self._max_visible
-
-
-def _first_index(outcome: Outcome[list[int]]) -> Outcome[int]:
-    """Reduces a collected outcome to its first index (single-select)."""
-    if outcome.is_shortcut:
-        return Outcome.shortcut(outcome.shortcut_id or 0)
-    if outcome.is_submitted and outcome.value:
-        return Outcome.submitted(outcome.value[0])
-    return Outcome.cancelled()

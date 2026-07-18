@@ -13,11 +13,15 @@ count and connector style are configurable.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sparcli.core.border import BorderType
 from sparcli.core.render import Renderable, Rendered
-from sparcli.core.style import Style
 from sparcli.core.text import IntoText, Line, Span, into_text
 from sparcli.core.theme import theme
+
+if TYPE_CHECKING:
+    from sparcli.core.style import Style
 
 # A connector spans the branch glyph, its dashes and a trailing space.
 _CONNECTOR_FIXED_CELLS = 2
@@ -35,7 +39,7 @@ class TreeNode:
         The node's direct children, drawn indented beneath it.
     """
 
-    __slots__ = ("content", "children")
+    __slots__ = ("children", "content")
 
     def __init__(self, content: IntoText) -> None:
         self.content = into_text(content)
@@ -51,11 +55,11 @@ class Tree(Renderable):
     """A tree of :class:`TreeNode` objects drawn with connector glyphs."""
 
     __slots__ = (
-        "_roots",
         "_border",
         "_connector_style",
         "_dashes",
         "_guides",
+        "_roots",
     )
 
     def __init__(
@@ -102,7 +106,19 @@ class Tree(Renderable):
         return self
 
     def render(self, max_width: int) -> Rendered:
-        """Renders the tree; ``max_width`` is accepted but not constraining."""
+        """
+        Renders the tree; ``max_width`` is accepted but not constraining.
+
+        Parameters
+        ----------
+        max_width : int
+            The number of columns available for the block.
+
+        Returns
+        -------
+        Rendered
+            The laid-out block of styled lines.
+        """
         del max_width
         lines: list[Line] = []
         for root in self._roots:

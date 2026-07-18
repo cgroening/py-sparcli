@@ -13,12 +13,16 @@ shell) and pipes the ANSI-encoded content into its standard input.
 from __future__ import annotations
 
 import io
+import logging
 import os
+import shlex
 import subprocess
 
 from sparcli.core.render import Renderable, write_rendered
 from sparcli.core.terminal import ColorSupport, is_output_tty, term_width
-from sparcli.errors import ConfigError
+from sparcli.errors import ConfigError, TerminalError
+
+logger = logging.getLogger(__name__)
 
 # The default pager command string for the current platform.
 _DEFAULT_PAGER = "more" if os.name == "nt" else "less -R"
@@ -27,7 +31,7 @@ _DEFAULT_PAGER = "more" if os.name == "nt" else "less -R"
 class Pager:
     """Pages content through an external pager."""
 
-    __slots__ = ("_command", "_always")
+    __slots__ = ("_always", "_command")
 
     def __init__(
         self, *, command: str | None = None, always: bool = False
@@ -58,20 +62,25 @@ class Pager:
         ------
         ConfigError
             If the resolved pager command is empty.
+        TerminalError
+            If the pager cannot be spawned.
         """
         if not self._always and not is_output_tty():
             content.print()
             return
         rendered = content.render(term_width())
-        argv = self.resolve_command().split()
+        argv = _split_command(self.resolve_command())
         if not argv:
             raise ConfigError("empty pager")
         buffer = io.StringIO()
         write_rendered(buffer, rendered, ColorSupport.TRUECOLOR)
-        with subprocess.Popen(  # noqa: S603
-            argv, stdin=subprocess.PIPE, text=True
-        ) as process:
-            process.communicate(buffer.getvalue())
+        try:
+            with subprocess.Popen(  # noqa: S603
+                argv, stdin=subprocess.PIPE, text=True
+            ) as process:
+                process.communicate(buffer.getvalue())
+        except OSError as error:
+            raise TerminalError(f"could not launch pager: {error}") from error
 
     def resolve_command(self) -> str:
         """Resolves the pager command string."""
@@ -81,3 +90,28 @@ class Pager:
         if value is not None and value.strip():
             return value
         return _DEFAULT_PAGER
+
+
+def _split_command(command: str) -> list[str]:
+    """
+    Splits a command line into argv, honoring quotes.
+
+    Uses :func:`shlex.split` rather than :meth:`str.split` so a pager path
+    containing spaces survives intact. The result feeds
+    :class:`subprocess.Popen` as an argument list, never a shell.
+
+    Parameters
+    ----------
+    command : str
+        The command line as configured or taken from ``$PAGER``.
+
+    Returns
+    -------
+    list[str]
+        The argv parts, empty when the command is blank or unbalanced.
+    """
+    try:
+        return shlex.split(command)
+    except ValueError:
+        logger.debug("could not parse pager command: %r", command)
+        return []

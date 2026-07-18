@@ -14,14 +14,17 @@ builders are provided.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from sparcli.core.border import BorderType
 from sparcli.core.geometry import Align, VAlign
 from sparcli.core.render import Renderable, Rendered
-from sparcli.core.style import Style
 from sparcli.core.text import Line, Span
 from sparcli.core.theme import theme
 from sparcli.output.layout import blank_line, pad_line
+
+if TYPE_CHECKING:
+    from sparcli.core.border import BorderType
+    from sparcli.core.style import Style
 
 _DEFAULT_GAP = 2
 
@@ -38,8 +41,8 @@ class Columns(Renderable):
     """A horizontal arrangement of rendered blocks."""
 
     __slots__ = (
-        "_items",
         "_gap",
+        "_items",
         "_separator",
         "_separator_style",
         "_valign",
@@ -95,7 +98,19 @@ class Columns(Renderable):
         return self
 
     def render(self, max_width: int) -> Rendered:
-        """Renders the columns side by side, ignoring ``max_width``."""
+        """
+        Renders the columns side by side, ignoring ``max_width``.
+
+        Parameters
+        ----------
+        max_width : int
+            The number of columns available for the block.
+
+        Returns
+        -------
+        Rendered
+            The laid-out block of styled lines.
+        """
         if not self._items:
             return Rendered.empty()
         height = max(item.block.height() for item in self._items)

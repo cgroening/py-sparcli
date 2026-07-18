@@ -1,6 +1,6 @@
 """
 sparcli.output.panel
-===================
+====================
 
 Defines :class:`Panel`, a bordered box framing rich content.
 
@@ -12,13 +12,17 @@ builder methods, so ``Panel("hi", title="Note")`` and
 
 from __future__ import annotations
 
-from sparcli.core.border import BorderType
+from typing import TYPE_CHECKING
+
 from sparcli.core.geometry import Align, Edges, Position, Title
 from sparcli.core.render import Renderable, Rendered
 from sparcli.core.style import Style
 from sparcli.core.text import IntoText, Text, into_text
 from sparcli.core.theme import theme
 from sparcli.output.box import BoxOpts, draw_box
+
+if TYPE_CHECKING:
+    from sparcli.core.border import BorderType
 
 IntoTitle = IntoText | Title
 
@@ -108,7 +112,19 @@ class Panel(Renderable):
         return self
 
     def render(self, max_width: int) -> Rendered:
-        """Renders the framed panel into at most ``max_width`` columns."""
+        """
+        Renders the framed panel into at most ``max_width`` columns.
+
+        Parameters
+        ----------
+        max_width : int
+            The number of columns available for the block.
+
+        Returns
+        -------
+        Rendered
+            The laid-out block of styled lines.
+        """
         return draw_box(self._content, self._opts, max_width)
 
 

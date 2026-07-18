@@ -12,6 +12,7 @@ build on top of it.
 from sparcli.core.border import BorderChars, BorderType
 from sparcli.core.color import Color, ColorName
 from sparcli.core.geometry import Align, Edges, Position, Title, VAlign
+from sparcli.core.inplace import InPlace
 from sparcli.core.markup import markup_print, markup_println, parse
 from sparcli.core.render import (
     Renderable,
@@ -54,14 +55,15 @@ __all__ = [
     "ColorName",
     "ColorSupport",
     "Edges",
+    "InPlace",
     "IntoLine",
     "IntoSpan",
     "IntoText",
     "Line",
     "Modifier",
     "Position",
-    "Rendered",
     "Renderable",
+    "Rendered",
     "Span",
     "Style",
     "SupportsWrite",

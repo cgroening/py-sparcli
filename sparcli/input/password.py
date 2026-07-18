@@ -14,14 +14,12 @@ omits history, suggestions and selection, and returns an
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from sparcli.core.render import Rendered
 from sparcli.core.style import Style
-from sparcli.core.terminal import is_input_tty
 from sparcli.core.theme import theme
-from sparcli.errors import NoTerminalError
 from sparcli.input.event import (
     EventKind,
     EventSource,
@@ -29,14 +27,14 @@ from sparcli.input.event import (
     KeyCode,
     KeyKind,
     KeyPress,
-    TerminalSource,
 )
 from sparcli.input.field import error_line, field_line, value_line
-from sparcli.input.guard import TerminalGuard
-from sparcli.input.line_edit import LineEditor
-from sparcli.input.outcome import Outcome
-from sparcli.input.prompt import Flow, run_prompt
-from sparcli.input.validate import CharFilter, Validator
+from sparcli.input.line_edit import CTRL_ACTIONS_MASKED, LineEditor
+from sparcli.input.prompt import Flow, run_on_terminal, run_prompt
+
+if TYPE_CHECKING:
+    from sparcli.input.outcome import Outcome
+    from sparcli.input.validate import CharFilter, Validator
 
 # Default mask glyph shown for each typed character.
 _DEFAULT_MASK = "*"
@@ -50,13 +48,6 @@ class _State:
     error: str | None
 
 
-# Ctrl-letter editing actions dispatched on the shared line editor.
-_CTRL_ACTIONS: dict[str, Callable[[LineEditor], None]] = {
-    "u": LineEditor.kill_to_line_start,
-    "w": LineEditor.delete_word_back,
-}
-
-
 class PasswordInput:
     """
     A masked password input prompt.
@@ -68,12 +59,12 @@ class PasswordInput:
     """
 
     __slots__ = (
-        "_prompt",
+        "_char_filter",
         "_initial",
         "_mask",
         "_max_chars",
+        "_prompt",
         "_validator",
-        "_char_filter",
     )
 
     def __init__(
@@ -132,13 +123,22 @@ class PasswordInput:
         NoTerminalError
             When there is no interactive terminal.
         """
-        if not is_input_tty():
-            raise NoTerminalError()
-        with TerminalGuard():
-            return self.run_with(TerminalSource())
+        return run_on_terminal(self.run_with)
 
     def run_with(self, source: EventSource) -> Outcome[str]:
-        """Runs the prompt against any event source (the test seam)."""
+        """
+        Runs the prompt against ``source`` and returns the outcome.
+
+        Parameters
+        ----------
+        source : EventSource
+            The event source driving the prompt (a fake in tests).
+
+        Returns
+        -------
+        Outcome[str]
+            The submitted value, a cancellation, or a fired shortcut.
+        """
         state = _State(editor=LineEditor(self._initial), error=None)
         return run_prompt(source, state, self._render, self._handle)
 
@@ -209,7 +209,7 @@ class PasswordInput:
         code = key.code
         if code.kind is not KeyKind.CHAR or code.ch is None:
             return
-        action = _CTRL_ACTIONS.get(code.ch)
+        action = CTRL_ACTIONS_MASKED.get(code.ch)
         if action is not None:
             action(state.editor)
 

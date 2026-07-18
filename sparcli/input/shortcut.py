@@ -1,13 +1,16 @@
 """
 sparcli.input.shortcut
-=====================
+======================
 
 Defines custom keyboard shortcuts and their footer/overlay rendering.
 
 A :class:`Shortcut` binds a key to a caller-defined action id and a footer
 label. :func:`find` maps a pressed key to its id; :func:`hint_line` renders the
 compact footer, and :func:`help_overlay` the expanded key list. :func:`key_name`
-turns a key press into a human-readable name such as ``Ctrl-S`` or ``Shift-Tab``.
+turns a key press into a readable name such as ``Ctrl-S`` or ``Shift-Tab``.
+
+:data:`HELP_KEY` and :func:`opens_help` are the single source of truth for the
+key that opens that overlay, so the prompts cannot drift apart on it.
 """
 
 from __future__ import annotations
@@ -38,6 +41,29 @@ class Shortcut:
     key: KeyPress
     id: int
     label: str
+
+
+# The key that opens the help overlay, shared by every prompt offering one.
+HELP_KEY = KeyCode.char("?")
+
+
+def opens_help(key: KeyPress, shortcuts: list[Shortcut]) -> bool:
+    """
+    Returns whether ``key`` should open the help overlay.
+
+    Parameters
+    ----------
+    key : KeyPress
+        The key the prompt just received.
+    shortcuts : list[Shortcut]
+        The registered shortcuts; without any there is nothing to show.
+
+    Returns
+    -------
+    bool
+        ``True`` when the overlay should open.
+    """
+    return bool(shortcuts) and key.code == HELP_KEY
 
 
 def find(key: KeyPress, shortcuts: list[Shortcut]) -> int | None:

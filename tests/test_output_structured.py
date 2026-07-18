@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sparcli.core.border import BorderType
-from sparcli.core.render import Rendered
 from sparcli.output.diff import MAX_DIFF_LINES, Diff
 from sparcli.output.list import List, Marker, _to_alpha, _to_roman
 from sparcli.output.panel import Panel
 from sparcli.output.tree import Tree, TreeNode
+
+if TYPE_CHECKING:
+    from sparcli.core.render import Rendered
 
 
 def lines_of(rendered: Rendered) -> list[str]:

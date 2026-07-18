@@ -3,17 +3,22 @@
 from __future__ import annotations
 
 import contextlib
-from collections.abc import Iterator
+from typing import TYPE_CHECKING
 
-import pytest
-
+from sparcli.errors import TerminalError
+from sparcli.input.editor import edit_or_none
 from sparcli.input.event import KeyCode, ScriptedSource
 from sparcli.input.text import TextInput
 from sparcli.input.validate import digits, min_len, non_empty
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    import pytest
+
 
 def _run(prompt: TextInput, codes: list[KeyCode]) -> object:
-    """Drives ``prompt`` with a scripted key sequence and returns the outcome."""
+    """Drives ``prompt`` with scripted keys and returns the outcome."""
     return prompt.run_with(ScriptedSource.keys(codes))
 
 
@@ -65,13 +70,22 @@ class TestTextInput:
             return f"{value}!"
 
         monkeypatch.setattr(
-            "sparcli.input.text.suspended_raw_mode", fake_suspend
+            "sparcli.input.editor.suspended_raw_mode", fake_suspend
         )
-        monkeypatch.setattr("sparcli.input.text.edit_text", fake_edit)
-        prompt = TextInput("x").editor()
-        result = prompt._edit_value("hi")  # pyright: ignore[reportPrivateUsage]
+        monkeypatch.setattr("sparcli.input.editor.edit_text", fake_edit)
+        result = edit_or_none(None, "hi", ".txt")
         assert result == "hi!"
         assert events == ["suspend", "edit", "resume"]
+
+    def test_editor_failure_is_swallowed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A failing editor must never take the prompt down with it.
+        def fail(command: str | None, value: str, suffix: str) -> str:
+            raise TerminalError("no editor")
+
+        monkeypatch.setattr("sparcli.input.editor.edit_text", fail)
+        assert edit_or_none(None, "hi", ".txt") is None
 
     def test_esc_cancels(self) -> None:
         outcome = _run(TextInput("x"), [KeyCode.ESC])

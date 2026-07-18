@@ -210,5 +210,5 @@ class _Parser:
 def _is_number_char(char: str | None) -> bool:
     """Returns whether ``char`` may appear inside a number literal."""
     return char is not None and (
-        char.isascii() and char.isdigit() or char == "."
+        (char.isascii() and char.isdigit()) or char == "."
     )

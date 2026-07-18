@@ -34,7 +34,15 @@ Changelog = "https://github.com/cgroening/py-sparcli/blob/main/CHANGELOG.md"
 Issues = "https://github.com/cgroening/py-sparcli/issues"
 
 [dependency-groups]
-dev = ["ruff", "basedpyright", "pytest"]
+dev = [
+    "basedpyright>=1.31",
+    "build>=1.2",
+    "pip-audit>=2.7",
+    "pre-commit>=4.0",
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "ruff>=0.15.21",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["sparcli"]
@@ -61,16 +69,88 @@ line-length = 80
 target-version = "py312"
 
 [tool.ruff.format]
-quote-style = "double"
+# "preserve" keeps PEP 701 nested double quotes inside f-strings intact;
+# the double-quote default is enforced by the Q rules instead.
+quote-style = "preserve"
+docstring-code-format = true
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "N", "B", "UP", "S", "RUF100"]
-ignore = ["E501"]
+select = [
+    "F", "E", "W", "I", "N", "D", "UP", "ANN", "S", "B", "A", "BLE",
+    "C4", "C90", "DTZ", "ERA", "FBT", "G", "INP", "LOG", "PIE", "Q",
+    "RSE", "SIM", "SLF", "T20", "TC", "TRY", "PTH", "PT", "RET", "ARG",
+    "TID", "PL", "RUF",
+]
+ignore = [
+    # Forbids meaningful messages at the raise site.
+    "TRY003",
+    # Forbids deferred imports, which break the layering here.
+    "PLC0415",
+    # Demands imperative docstrings; the style guide mandates third
+    # person singular ("Returns ..."), so this rule is inverted for us.
+    "D401",
+    # Widget constructors are keyword-only by design and mirror the Rust
+    # port's builder API, so their argument count is intentional.
+    "PLR0913",
+    # The fluent builder API takes booleans by design (Table.striped(True),
+    # header(False)); it mirrors the Rust port and cannot be split.
+    "FBT001",
+    "FBT002",
+    "FBT003",
+    # Every module opens with an RST title ("sparcli.input.select" plus an
+    # underline), which is a dotted path and cannot end in a period or be
+    # followed by a blank line. All 116 hits are module docstrings; no
+    # function docstring trips either rule.
+    "D205",
+    "D400",
+    # Renderable.render(max_width) and the prompt render(state, final)
+    # callbacks are fixed-signature contracts; an implementation that does not
+    # need a parameter still has to accept it under that exact name.
+    "ARG002",
+    # The style guide mandates the en dash in prose, which this rule flags as
+    # an ambiguous character.
+    "RUF002",
+]
+
+[tool.ruff.lint.pylint]
+# Guard-clause style (style guide 1.2.5) produces many early returns by
+# design; the dispatch functions here top out at eight.
+max-returns = 8
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "double"
+avoid-escape = false
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101"]
-"examples/*" = ["S101"]
+"tests/*" = [
+    "D1", "ANN", "S101", "SLF001", "PLR2004", "INP001", "ARG", "BLE001",
+    "DTZ011",
+]
+"examples/*" = ["D1", "ANN", "S101", "T201", "INP001", "ARG"]
+"**/__init__.py" = ["D104"]
 
 [tool.pytest.ini_options]
 testpaths = ["sparcli", "tests"]
-addopts = "--doctest-modules --ignore=examples"
+python_files = ["test_*.py"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--doctest-modules",
+    "--ignore=examples",
+    "--cov=sparcli",
+    "--cov-branch",
+    "--cov-report=term-missing",
+]
+filterwarnings = ["error"]
+xfail_strict = true
+
+[tool.coverage.report]
+fail_under = 86
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abstractmethod",
+]

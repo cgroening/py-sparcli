@@ -1,6 +1,6 @@
 """
 sparcli.core.cursor
-==================
+===================
 
 Hides and restores the terminal hardware cursor around in-place redraws.
 
@@ -26,7 +26,8 @@ _atexit_registered = False
 
 def hide() -> None:
     """Hides the terminal cursor once; a no-op if already hidden."""
-    global _hidden, _atexit_registered
+    # Process-wide cursor state: the terminal has exactly one cursor.
+    global _hidden, _atexit_registered  # noqa: PLW0603
     if _hidden:
         return
     _write(_HIDE)
@@ -38,7 +39,7 @@ def hide() -> None:
 
 def show() -> None:
     """Restores the terminal cursor if it was hidden; a no-op otherwise."""
-    global _hidden
+    global _hidden  # noqa: PLW0603
     if not _hidden:
         return
     _write(_SHOW)

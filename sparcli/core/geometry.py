@@ -14,9 +14,12 @@ from __future__ import annotations
 
 import enum
 from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING
 
-from sparcli.core.style import Style
 from sparcli.core.text import IntoText, Line, Span, Text, into_text
+
+if TYPE_CHECKING:
+    from sparcli.core.style import Style
 
 
 class Align(enum.Enum):

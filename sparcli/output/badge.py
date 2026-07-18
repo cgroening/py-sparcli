@@ -24,7 +24,7 @@ _DEFAULT_RIGHT_CAP = "]"
 class Badge(Renderable):
     """A small inline token with configurable caps and style."""
 
-    __slots__ = ("_text", "_left_cap", "_right_cap", "_style", "_pad")
+    __slots__ = ("_left_cap", "_pad", "_right_cap", "_style", "_text")
 
     def __init__(
         self,
@@ -73,7 +73,19 @@ class Badge(Renderable):
         return Span.styled(content, self._style)
 
     def render(self, max_width: int) -> Rendered:
-        """Renders the badge as a single line, ignoring ``max_width``."""
+        """
+        Renders the badge as a single line, ignoring ``max_width``.
+
+        Parameters
+        ----------
+        max_width : int
+            The number of columns available for the block.
+
+        Returns
+        -------
+        Rendered
+            The laid-out block of styled lines.
+        """
         return Rendered([Line([self.span()])])
 
 

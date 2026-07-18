@@ -1,6 +1,6 @@
 """
 sparcli.core.markup
-==================
+===================
 
 Parses lightweight inline markup such as ``[bold red]text[/]`` into rich text.
 
@@ -81,14 +81,26 @@ class _AsRenderable(Renderable):
         self._text = text
 
     def render(self, max_width: int) -> Rendered:
-        """Returns the text's lines as a rendered block."""
+        """
+        Returns the text's lines as a rendered block.
+
+        Parameters
+        ----------
+        max_width : int
+            The number of columns available for the block.
+
+        Returns
+        -------
+        Rendered
+            The laid-out block of styled lines.
+        """
         return Rendered.from_text(self._text)
 
 
 class _Parser:
     """A small state machine turning markup into styled lines."""
 
-    __slots__ = ("_chars", "_stack", "_lines", "_spans", "_buffer", "_in_code")
+    __slots__ = ("_buffer", "_chars", "_in_code", "_lines", "_spans", "_stack")
 
     def __init__(self, markup: str) -> None:
         self._chars = markup
@@ -121,7 +133,7 @@ class _Parser:
         return Text(self._lines)
 
     def _consume_escape(self, index: int) -> int:
-        """Appends the escaped character literally and returns the next index."""
+        """Appends the escaped character and returns the next index."""
         if index + 1 < len(self._chars):
             self._buffer.append(self._chars[index + 1])
             return index + 2
@@ -129,7 +141,7 @@ class _Parser:
         return index + 1
 
     def _consume_tag(self, index: int) -> int:
-        """Handles a ``[...]`` tag or emits an unrecognized bracket literally."""
+        """Handles a ``[...]`` tag, else emits the bracket literally."""
         end = self._chars.find("]", index)
         if end == -1:
             self._buffer.append("[")

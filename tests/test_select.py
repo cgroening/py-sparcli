@@ -6,7 +6,8 @@ import pytest
 
 from sparcli.errors import NoTerminalError
 from sparcli.input.event import InputEvent, KeyCode, KeyPress, ScriptedSource
-from sparcli.input.select import Select, _first_index
+from sparcli.input.select import Select
+from sparcli.input.selection import first_index
 from sparcli.input.shortcut import Shortcut
 
 
@@ -23,7 +24,7 @@ class TestSingleSelect:
 
     def test_first_index_reduces_to_single(self) -> None:
         source = ScriptedSource.keys([KeyCode.DOWN, KeyCode.ENTER])
-        outcome = _first_index(_select().run_with(source))
+        outcome = first_index(_select().run_with(source))
         assert outcome.is_submitted
         assert outcome.value == 1
 
@@ -110,7 +111,7 @@ class TestEmptyOptions:
         assert outcome.value == []
 
     def test_single_reduces_empty_to_cancelled(self) -> None:
-        outcome = _first_index(Select("none").run_with(ScriptedSource.keys([])))
+        outcome = first_index(Select("none").run_with(ScriptedSource.keys([])))
         assert outcome.is_cancelled
 
 

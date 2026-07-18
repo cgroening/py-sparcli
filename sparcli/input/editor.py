@@ -1,6 +1,6 @@
 """
 sparcli.input.editor
-===================
+====================
 
 Defines external-editor integration (``$VISUAL`` / ``$EDITOR``).
 
@@ -18,14 +18,17 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
-from collections.abc import Generator
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from sparcli.errors import ConfigError, TerminalError
+from sparcli.errors import ConfigError, SparcliError, TerminalError
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +58,7 @@ def edit_file(command: str | None, path: Path) -> None:
     TerminalError
         If the editor cannot be spawned.
     """
-    parts = _resolve_command(command).split()
+    parts = _split_command(_resolve_command(command))
     if not parts:
         raise ConfigError("empty editor command")
     argv = [*parts, str(path)]
@@ -102,6 +105,32 @@ def edit_text(command: str | None, initial: str, suffix: str) -> str:
         raise TerminalError(f"could not edit temp file: {error}") from error
     finally:
         _remove_quietly(path)
+
+
+def _split_command(command: str) -> list[str]:
+    """
+    Splits a command line into argv, honoring quotes.
+
+    Uses :func:`shlex.split` rather than :meth:`str.split` so an editor path
+    containing spaces (``/Applications/Sublime Text/subl``) survives intact.
+    The result feeds :func:`subprocess.run` as an argument list, never a
+    shell, so no quoting can turn into command injection.
+
+    Parameters
+    ----------
+    command : str
+        The command line as configured or taken from the environment.
+
+    Returns
+    -------
+    list[str]
+        The argv parts, empty when the command is blank or unbalanced.
+    """
+    try:
+        return shlex.split(command)
+    except ValueError:
+        logger.debug("could not parse editor command: %r", command)
+        return []
 
 
 def _resolve_command(command: str | None) -> str:
@@ -163,6 +192,37 @@ def _suspend_raw() -> tuple[int, list[Any]] | None:
     except (OSError, ValueError, termios.error):
         return None
     return (fd, saved)
+
+
+def edit_or_none(command: str | None, text: str, suffix: str) -> str | None:
+    """
+    Round-trips ``text`` through the external editor, swallowing failures.
+
+    Raw mode is suspended for the duration so the editor owns the terminal.
+    A failing editor must never take the prompt down with it, so any
+    :class:`~sparcli.errors.SparcliError` is logged at debug level and
+    reported as "no change".
+
+    Parameters
+    ----------
+    command : str | None
+        The editor command, or ``None`` to fall back to the environment.
+    text : str
+        The text handed to the editor.
+    suffix : str
+        The temporary file suffix, which selects the editor's syntax mode.
+
+    Returns
+    -------
+    str | None
+        The edited text, or ``None`` when the editor failed.
+    """
+    try:
+        with suspended_raw_mode():
+            return edit_text(command, text, suffix)
+    except SparcliError as error:
+        logger.debug("external editor failed: %s", error)
+        return None
 
 
 def _cooked_mode(mode: list[Any]) -> list[Any]:

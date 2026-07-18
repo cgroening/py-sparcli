@@ -13,7 +13,7 @@ from sparcli.input.validate import min_len, no_space
 
 
 def _run(prompt: PasswordInput, codes: list[KeyCode]) -> object:
-    """Drives ``prompt`` with a scripted key sequence and returns the outcome."""
+    """Drives ``prompt`` with scripted keys and returns the outcome."""
     return prompt.run_with(ScriptedSource.keys(codes))
 
 
