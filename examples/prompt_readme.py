@@ -1,4 +1,5 @@
-"""The input showcase collage embedded in the README.
+"""
+The input showcase collage embedded in the README.
 
 Renders the static opening frame of every interactive prompt via its
 ``frame()`` method – no TTY and no interaction – and arranges them into a

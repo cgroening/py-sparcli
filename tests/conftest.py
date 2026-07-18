@@ -43,7 +43,8 @@ def ansi(rendered: Rendered) -> str:
 
 @pytest.fixture(autouse=True)
 def _reset_theme() -> Iterator[None]:
-    """Restores the default theme after every test.
+    """
+    Restores the default theme after every test.
 
     The theme is process-wide state, so a test that sets one would otherwise
     leak into whatever runs next.

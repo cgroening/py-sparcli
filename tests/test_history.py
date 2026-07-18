@@ -1,4 +1,5 @@
-"""Tests for persisted command history, including its path hardening.
+"""
+Tests for persisted command history, including its path hardening.
 
 The state directory and the application name both reach this code from
 outside the process, so the tests cover the rejection of names that would

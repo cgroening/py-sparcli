@@ -81,6 +81,11 @@ select = [
     "RSE", "SIM", "SLF", "T20", "TC", "TRY", "PTH", "PT", "RET", "ARG",
     "TID", "PL", "RUF",
 ]
+# The numpy convention disables D212 and D213 alike, which silently permits
+# both layouts. D213 has to be re-enabled explicitly to enforce the one the
+# style guide mandates: summary on the line after the opening quotes.
+extend-select = ["D213"]
+
 ignore = [
     # Forbids meaningful messages at the raise site.
     "TRY003",
@@ -110,6 +115,8 @@ ignore = [
     # The style guide mandates the en dash in prose, which this rule flags as
     # an ambiguous character.
     "RUF002",
+    # Conflicts with D213 (summary on the line after the opening quotes).
+    "D212",
 ]
 
 [tool.ruff.lint.pylint]

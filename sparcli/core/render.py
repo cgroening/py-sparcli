@@ -254,7 +254,8 @@ def _ansi16_sgr(index: int, *, background: bool) -> str:
 
 
 def _wrap_link(content: str, link: str | None) -> str:
-    """Wraps ``content`` in an OSC-8 hyperlink when a link is present.
+    """
+    Wraps ``content`` in an OSC-8 hyperlink when a link is present.
 
     The URL is scrubbed of control characters so a crafted link cannot
     terminate the OSC-8 sequence early and inject its own escapes.

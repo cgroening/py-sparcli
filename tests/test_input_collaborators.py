@@ -1,4 +1,5 @@
-"""Tests for the collaborators the input prompts are composed from.
+"""
+Tests for the collaborators the input prompts are composed from.
 
 ``SelectionCursor``, ``Completion`` and ``HistoryRecall`` were extracted from
 the prompts so each concern could be tested on its own; these are those tests.

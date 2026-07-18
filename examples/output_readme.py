@@ -1,4 +1,5 @@
-"""The output showcase collage embedded in the README.
+"""
+The output showcase collage embedded in the README.
 
 Prints a titled hero panel, a three-column dashboard (table | list + tree |
 key-value + badges) and a progress bar. Everything is deterministic, so

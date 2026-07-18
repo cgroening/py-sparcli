@@ -1,4 +1,5 @@
-"""Interactive prompt examples covering every input widget.
+"""
+Interactive prompt examples covering every input widget.
 
 Run it in a real terminal: ``python examples/prompts.py``. Each prompt runs in
 turn; pressing Esc cancels that prompt and the demo reports it as cancelled

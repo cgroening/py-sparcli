@@ -1,4 +1,5 @@
-"""Time-based and interactive output widgets.
+"""
+Time-based and interactive output widgets.
 
 Covers the spinner, a single progress bar, a multi-progress group, a live
 in-place redraw and the pager. Run it in a real terminal for the full effect:

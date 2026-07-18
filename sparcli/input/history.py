@@ -118,7 +118,8 @@ class History:
 
 
 def _atomic_write(path: Path, content: str) -> None:
-    """Writes ``content`` to ``path`` atomically via a temp file and rename.
+    """
+    Writes ``content`` to ``path`` atomically via a temp file and rename.
 
     A crash or a concurrent writer can never leave a half-written history
     file: the content is written to a sibling temp file and then renamed over

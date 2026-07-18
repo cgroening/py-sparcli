@@ -1,4 +1,5 @@
-"""A gallery of every static output widget.
+"""
+A gallery of every static output widget.
 
 Run it with ``python examples/output_gallery.py``. Everything here renders to a
 fixed frame, so the output is deterministic and pipe-friendly: piping it

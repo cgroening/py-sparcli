@@ -1,4 +1,5 @@
-"""Tests for resolving and splitting the external editor and pager commands.
+"""
+Tests for resolving and splitting the external editor and pager commands.
 
 Both commands come from the environment, so they are split with ``shlex``
 rather than ``str.split`` and never reach a shell. These tests pin that

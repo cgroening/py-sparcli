@@ -1,4 +1,5 @@
-"""Tests for the shared box-drawing routine behind Panel and Alert.
+"""
+Tests for the shared box-drawing routine behind Panel and Alert.
 
 ``draw_box`` carries the title-embedding and truncation rules that must match
 the Rust original, so it is exercised directly here rather than only through

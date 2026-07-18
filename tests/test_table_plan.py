@@ -1,4 +1,5 @@
-"""Tests for the table placement grid and the column width distributor.
+"""
+Tests for the table placement grid and the column width distributor.
 
 ``build_plan`` and ``column_widths`` carry the colspan, rowspan and shrinking
 rules. Driving them through the ``Table`` facade cannot reach their edge cases,
