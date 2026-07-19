@@ -12,10 +12,10 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from sparcli.core.command import split_command as _split_command
 from sparcli.errors import ConfigError, TerminalError
-from sparcli.input.editor import _resolve_command, _split_command
+from sparcli.input.editor import _resolve_command
 from sparcli.output.pager import Pager
-from sparcli.output.pager import _split_command as _split_pager_command
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -41,7 +41,7 @@ class TestSplitCommand:
         assert _split_command('vi "unterminated') == []
 
     def test_the_pager_uses_the_same_splitting(self) -> None:
-        argv = _split_pager_command('"/usr/bin/my pager" -R')
+        argv = _split_command('"/usr/bin/my pager" -R')
         assert argv == ["/usr/bin/my pager", "-R"]
 
 
@@ -93,14 +93,24 @@ class TestPagerCommand:
         monkeypatch.setenv("PAGER", "  ")
         assert Pager().resolve_command().strip() != ""
 
-    def test_an_empty_command_raises_config_error(
+    def test_a_blank_command_falls_through_to_the_environment(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        # A blank value counts as unset everywhere, matching the editor and
+        # the way a shell treats an empty variable.
+        monkeypatch.setenv("PAGER", "less -R")
+        assert Pager(command="").resolve_command() == "less -R"
+        assert Pager(command="   ").resolve_command() == "less -R"
+
+    def test_an_unparsable_command_raises_config_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # An unbalanced quote yields no argv at all, which is unusable.
         from sparcli.core.text import Text
         from sparcli.output.compose import vstack
 
         monkeypatch.setenv("CLICOLOR_FORCE", "1")
-        pager = Pager(command="", always=True)
+        pager = Pager(command='less "unterminated', always=True)
         with pytest.raises(ConfigError):
             pager.page(vstack([Text.raw("x")]))
 

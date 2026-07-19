@@ -15,9 +15,9 @@ from __future__ import annotations
 import io
 import logging
 import os
-import shlex
 import subprocess
 
+from sparcli.core.command import resolve_from_env, split_command
 from sparcli.core.render import Renderable, write_rendered
 from sparcli.core.terminal import ColorSupport, is_output_tty, term_width
 from sparcli.errors import ConfigError, TerminalError
@@ -69,7 +69,7 @@ class Pager:
             content.print()
             return
         rendered = content.render(term_width())
-        argv = _split_command(self.resolve_command())
+        argv = split_command(self.resolve_command())
         if not argv:
             raise ConfigError("empty pager")
         buffer = io.StringIO()
@@ -84,34 +84,4 @@ class Pager:
 
     def resolve_command(self) -> str:
         """Resolves the pager command string."""
-        if self._command is not None:
-            return self._command
-        value = os.environ.get("PAGER")
-        if value is not None and value.strip():
-            return value
-        return _DEFAULT_PAGER
-
-
-def _split_command(command: str) -> list[str]:
-    """
-    Splits a command line into argv, honoring quotes.
-
-    Uses :func:`shlex.split` rather than :meth:`str.split` so a pager path
-    containing spaces survives intact. The result feeds
-    :class:`subprocess.Popen` as an argument list, never a shell.
-
-    Parameters
-    ----------
-    command : str
-        The command line as configured or taken from ``$PAGER``.
-
-    Returns
-    -------
-    list[str]
-        The argv parts, empty when the command is blank or unbalanced.
-    """
-    try:
-        return shlex.split(command)
-    except ValueError:
-        logger.debug("could not parse pager command: %r", command)
-        return []
+        return resolve_from_env(self._command, ("PAGER",), _DEFAULT_PAGER)

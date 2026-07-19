@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from sparcli.core.style import Attribute, Style
-from sparcli.core.terminal import ColorSupport, color_support, term_width
+from sparcli.core.terminal import ColorSupport, color_support, output_width
 from sparcli.core.text import IntoLine, Line, Span, Text, into_line
 
 if TYPE_CHECKING:
@@ -89,21 +89,29 @@ class Renderable(ABC):
         raise NotImplementedError
 
     def print(self) -> None:
-        """Renders at the terminal width and writes the result to stdout."""
-        rendered = self.render(term_width())
+        """
+        Renders for the current output width and writes it to stdout.
+
+        At a terminal that is its width. Piped or redirected there is no width
+        to fit, so nothing is truncated and the block keeps its natural width -
+        clipping to an invented default would drop data from the pipe silently.
+        """
+        rendered = self.render(output_width())
         write_rendered(sys.stdout, rendered, color_support())
         sys.stdout.flush()
 
     def print_to(self, writer: SupportsWrite) -> None:
         """
-        Renders at the terminal width and writes to ``writer``.
+        Renders for the current output width and writes to ``writer``.
+
+        Width is resolved exactly as in :meth:`print`.
 
         Parameters
         ----------
         writer : SupportsWrite
             Any object with a ``write(str)`` method (a file, ``io.StringIO``).
         """
-        rendered = self.render(term_width())
+        rendered = self.render(output_width())
         write_rendered(writer, rendered, color_support())
 
 

@@ -224,12 +224,14 @@ class TestPager:
         Pager().page(_FakeWidget())
         assert "hello pager" in capsys.readouterr().out
 
-    def test_page_empty_command_raises_config_error(
+    def test_page_unparsable_command_raises_config_error(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        # A blank command now falls through to $PAGER; what stays unusable is
+        # a command line that cannot be split at all.
         monkeypatch.setenv("SPARCLI_NO_TTY", "1")
         with pytest.raises(ConfigError):
-            Pager().command("   ").always().page(_FakeWidget())
+            Pager().command('less "unterminated').always().page(_FakeWidget())
 
 
 class TestLive:

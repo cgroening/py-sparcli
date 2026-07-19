@@ -27,11 +27,23 @@ Requirements for all future sessions in this project. On conflict, this file tak
 
 ## Architecture (keep the layers strictly separated)
 
-- `core/` – foundation: style, color, text, render, geometry, border, theme, width, terminal, markup, `inplace` (the redraw engine). No widget logic.
+- `core/` – foundation: style, color, text, render, geometry, border, theme, width, terminal, markup, `inplace` (the redraw engine), `command` (quote-aware splitting and env resolution for `$EDITOR`/`$PAGER`). No widget logic.
 - `output/` – printable widgets, subclass `Renderable` (`render(max_width) -> Rendered`). Shared helpers: `layout`, `compose`, `box`, `live`.
 - `input/` – interactive prompts over `EventSource` (DI) + the `prompt.run_prompt` loop and `prompt.run_on_terminal` guard + `line_edit.LineEditor` (SSOT for text editing, plus the shared `CTRL_ACTIONS` tables and `apply_caret_key`) + `field` (rendering). The prompts are composed from small collaborators: `completion.Completion`, `recall.HistoryRecall`, `selection.SelectionCursor` and the `keydecode` byte primitives.
 - **Dependency direction:** `output`/`input` → `core`. Never cyclic, never `core` → widget layer, and never `input` → `output` (this is why `InPlace` lives in `core/inplace.py`; `output/live.py` re-exports it for the public API).
 - **A single unified theme** in `core/theme.py` drives both input and output.
+
+### One helper per rule
+
+Where a rule applies in more than one widget it lives in exactly one place. Do not reimplement these per call site: `core.width.truncate`/`truncate_line` for `…` clipping, `input.selection.SelectionCursor` for cursor and scroll window, `input.prompt.run_on_terminal` for the terminal handover, `core.command.split_command`/`resolve_from_env` for external commands.
+
+## Output streams (§1.6)
+
+sparcli is a library, not a CLI program, so §1.6 binds it only through what it prints:
+
+- Payload goes to **stdout**, progress indicators to **stderr**, and progress draws only when stderr is a terminal. `InPlace.progress()` is the seam.
+- `print`/`print_to` do **not** truncate when stdout is not a terminal: they lay out at `UNCONSTRAINED_WIDTH`, because clipping to an invented width loses piped data silently. An explicit `render(max_width)` still truncates – that width is the caller's decision.
+- §1.7 (TUI) rules – scrollbar on overflow, a `?` overlay in every prompt, `Ctrl+Q` – are deliberately **not** implemented. They govern terminal UIs, not a CLI output library.
 - The public API is re-exported flat (`from sparcli import ...`, 81 symbols) plus the namespaces `sparcli.width/terminal/markup/event/validate/shortcut`. Every `__init__.py` carries an explicit `__all__` list.
 
 ## Dependencies

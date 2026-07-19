@@ -18,20 +18,37 @@ from __future__ import annotations
 
 import io
 import sys
+from typing import TextIO
 
 from sparcli.core import cursor
 from sparcli.core.render import Rendered, write_line, write_rendered
-from sparcli.core.terminal import color_support, is_output_tty
+from sparcli.core.terminal import (
+    color_support,
+    is_error_tty,
+    is_output_tty,
+)
 
 
 class InPlace:
     """Redraws successive frames in the same terminal region."""
 
-    __slots__ = ("_interactive", "_last_frame", "_last_height", "_silent")
+    __slots__ = (
+        "_interactive",
+        "_last_frame",
+        "_last_height",
+        "_silent",
+        "_stream",
+    )
 
-    def __init__(self, interactive: bool, silent: bool) -> None:
+    def __init__(
+        self,
+        interactive: bool,
+        silent: bool,
+        stream: TextIO | None = None,
+    ) -> None:
         self._interactive = interactive
         self._silent = silent
+        self._stream = stream if stream is not None else sys.stdout
         self._last_height = 0
         self._last_frame: Rendered | None = None
 
@@ -39,6 +56,17 @@ class InPlace:
     def create(cls, always: bool = False) -> InPlace:
         """Returns an engine that redraws on a TTY (or always when forced)."""
         return cls(interactive=always or is_output_tty(), silent=False)
+
+    @classmethod
+    def progress(cls) -> InPlace:
+        """
+        Returns an engine for a progress indicator, drawing on stderr.
+
+        Progress is not payload: drawing it on standard output would put
+        animation frames into whatever a caller pipes the output into. It is
+        drawn only when standard error is itself a terminal.
+        """
+        return cls(interactive=is_error_tty(), silent=False, stream=sys.stderr)
 
     @classmethod
     def silent(cls) -> InPlace:
@@ -60,8 +88,8 @@ class InPlace:
             if index:
                 buffer.write("\r\n")
             write_line(buffer, line, support)
-        sys.stdout.write(buffer.getvalue())
-        sys.stdout.flush()
+        self._stream.write(buffer.getvalue())
+        self._stream.flush()
         self._last_height = rendered.height()
 
     def reset(self) -> None:
@@ -73,11 +101,11 @@ class InPlace:
         if self._silent:
             return
         if self._interactive:
-            sys.stdout.write("\r\n")
-            sys.stdout.flush()
+            self._stream.write("\r\n")
+            self._stream.flush()
         elif self._last_frame is not None:
-            write_rendered(sys.stdout, self._last_frame, color_support())
-            sys.stdout.flush()
+            write_rendered(self._stream, self._last_frame, color_support())
+            self._stream.flush()
         cursor.show()
         self._last_height = 0
         self._last_frame = None
@@ -89,8 +117,8 @@ class InPlace:
             return
         buffer = io.StringIO()
         self._rewind(buffer)
-        sys.stdout.write(buffer.getvalue())
-        sys.stdout.flush()
+        self._stream.write(buffer.getvalue())
+        self._stream.flush()
         cursor.show()
         self._last_height = 0
 

@@ -39,7 +39,7 @@ class MultiProgress:
 
     def __init__(self, *, inplace: InPlace | None = None) -> None:
         self._bars: list[_BarState] = []
-        self._inplace = inplace or InPlace.create()
+        self._inplace = inplace or InPlace.progress()
         self._transient = False
 
     def transient(self) -> MultiProgress:

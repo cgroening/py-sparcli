@@ -8,6 +8,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `core.command`, holding the quote-aware `split_command` and the `resolve_from_env` precedence rule. Both `input/editor.py` and `output/pager.py` had carried their own private copy of the splitter. Mirrors the Rust port.
+- `terminal.is_error_tty`, `terminal.output_width` and `terminal.UNCONSTRAINED_WIDTH` expose which stream a widget draws to and how wide printed output should be laid out. Mirrors the Rust port.
+
+### Changed
+
+- Progress indicators (`ProgressBar`, `Spinner`, `MultiProgress`) now draw on standard error rather than standard output, and only when standard error is itself a terminal. A caller piping standard output onward no longer receives animation frames in the payload. Interactive prompts and `Live` continue to draw on standard output. Mirrors the Rust port.
+- `Renderable.print` and `print_to` no longer truncate when standard output is not a terminal. Previously they laid out for an invented 80 columns, so piping a wide table clipped its cells with `…` and lost data without saying so. An explicit `render(max_width)` is unaffected. Mirrors the Rust port.
+- A `Card` without an explicit `width` now lays out at its natural content width when the available width is unconstrained, instead of filling it. Mirrors the Rust port.
+- A blank `Pager` command override now falls through to `$PAGER` and the platform default instead of raising `ConfigError`. Blank counts as unset everywhere, which is how `$EDITOR` already behaved. An unparsable command still raises `ConfigError`. Mirrors the Rust port.
+
+### Fixed
+
+- `History.load` keeps only the newest `max_entries` lines instead of reading the whole file into memory. The file is foreign input and may have been written by a build with a larger limit. Mirrors the Rust port.
+
 - `Card`, a filled counterpart to `Panel`: a colored surface with its own title and footer rows instead of a title embedded in the border. A single `accent()` derives the whole palette through HSL – the title keeps the accent saturated, the body text and both backgrounds become desaturated, darker shades of the same hue. The border is opt-in, the card fills the width it is rendered into, content wraps, and title, body and footer each take their own padding and alignment. The style setters patch the derived values rather than replacing them. Below truecolor support the backgrounds are dropped and the card renders as accented text, because the derived shades would collapse onto one ANSI-16 color. Ported from the Rust original, whose output it matches byte for byte.
 - `BorderType.TALL`, a thin block border around a card's filled surface: the side bars ink a quarter of their cell's width and the top and bottom lines an eighth of their cell's height, which comes out equally thick because a terminal cell is about twice as tall as it is wide, and the horizontal lines run across the corner cells so the corners close. Only `Card` draws it natively – the bars need a filled surface to read against, all four edges use a different glyph, and the right-hand one is painted with foreground and background swapped, none of which `BorderChars` can express. Every other widget receives the `BorderType.THICK` glyphs from `BorderType.chars`.
 - `Color.to_rgb` returns the 24-bit value of any color: named colors and palette indices resolve through the standard xterm palette (fixed table, 6x6x6 cube, grayscale ramp). `Color.RESET` has no fixed value and returns `None`.

@@ -26,6 +26,10 @@ _CLICOLOR_FORCE = "CLICOLOR_FORCE"
 _COLORTERM = "COLORTERM"
 _NO_TTY_OVERRIDE = "SPARCLI_NO_TTY"
 
+#: Width standing for "no limit at all": widgets lay out at their natural
+#: content width, because there is no terminal to fit into.
+UNCONSTRAINED_WIDTH = 2**31 - 1
+
 
 class ColorSupport(enum.Enum):
     """How much color the current output stream can display."""
@@ -67,6 +71,27 @@ def term_height() -> int:
 def is_output_tty() -> bool:
     """Returns whether standard output is an interactive terminal."""
     return not _no_tty_override() and _isatty(sys.stdout)
+
+
+def is_error_tty() -> bool:
+    """Returns whether standard error is an interactive terminal."""
+    return not _no_tty_override() and _isatty(sys.stderr)
+
+
+def output_width() -> int:
+    """
+    Returns the width printed output should be laid out for.
+
+    At a terminal this is its width. Without one there is no width to respect,
+    and clipping to an invented default would drop data from a pipe silently,
+    so layout is left unconstrained.
+
+    Returns
+    -------
+    int
+        The terminal width, or :data:`UNCONSTRAINED_WIDTH` off a terminal.
+    """
+    return term_width() if is_output_tty() else UNCONSTRAINED_WIDTH
 
 
 def is_input_tty() -> bool:

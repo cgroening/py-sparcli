@@ -129,3 +129,29 @@ class TestHistoryPathHardening:
         history.add("x")
         history.save()
         assert history.entries() == ["x"]
+
+
+class TestHistoryLoadCap:
+    def test_load_keeps_only_the_newest_max_entries(
+        self, tmp_path: Path
+    ) -> None:
+        # The file is foreign input: an older build or another tool may have
+        # left far more lines in it than this history is configured to hold.
+        path = tmp_path / "history"
+        path.write_text("a\nb\nc\nd\ne", encoding="utf-8")
+        history = History().max_entries(2)
+        history._path = path
+        history.load()
+        assert history.entries() == ["d", "e"]
+
+    def test_a_saved_history_is_not_readable_by_other_accounts(
+        self, tmp_path: Path
+    ) -> None:
+        import stat
+
+        history = History()
+        history._path = tmp_path / "history"
+        history.add("a token someone pasted into a prompt")
+        history.save()
+        mode = stat.S_IMODE((tmp_path / "history").stat().st_mode)
+        assert mode & 0o077 == 0

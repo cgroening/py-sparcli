@@ -18,13 +18,13 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
-import shlex
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from sparcli.core.command import resolve_from_env, split_command
 from sparcli.errors import ConfigError, SparcliError, TerminalError
 
 if TYPE_CHECKING:
@@ -58,7 +58,7 @@ def edit_file(command: str | None, path: Path) -> None:
     TerminalError
         If the editor cannot be spawned.
     """
-    parts = _split_command(_resolve_command(command))
+    parts = split_command(_resolve_command(command))
     if not parts:
         raise ConfigError("empty editor command")
     argv = [*parts, str(path)]
@@ -107,41 +107,9 @@ def edit_text(command: str | None, initial: str, suffix: str) -> str:
         _remove_quietly(path)
 
 
-def _split_command(command: str) -> list[str]:
-    """
-    Splits a command line into argv, honoring quotes.
-
-    Uses :func:`shlex.split` rather than :meth:`str.split` so an editor path
-    containing spaces (``/Applications/Sublime Text/subl``) survives intact.
-    The result feeds :func:`subprocess.run` as an argument list, never a
-    shell, so no quoting can turn into command injection.
-
-    Parameters
-    ----------
-    command : str
-        The command line as configured or taken from the environment.
-
-    Returns
-    -------
-    list[str]
-        The argv parts, empty when the command is blank or unbalanced.
-    """
-    try:
-        return shlex.split(command)
-    except ValueError:
-        logger.debug("could not parse editor command: %r", command)
-        return []
-
-
 def _resolve_command(command: str | None) -> str:
     """Resolves the editor command from the override or environment."""
-    if command is not None and command.strip():
-        return command
-    for key in ("VISUAL", "EDITOR"):
-        value = os.environ.get(key)
-        if value is not None and value.strip():
-            return value
-    return _default_editor()
+    return resolve_from_env(command, ("VISUAL", "EDITOR"), _default_editor())
 
 
 def _default_editor() -> str:

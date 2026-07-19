@@ -21,7 +21,11 @@ from sparcli.core.border import TALL, BorderType
 from sparcli.core.geometry import Align, Position
 from sparcli.core.render import Rendered
 from sparcli.core.style import Style
-from sparcli.core.terminal import ColorSupport, color_support
+from sparcli.core.terminal import (
+    UNCONSTRAINED_WIDTH,
+    ColorSupport,
+    color_support,
+)
 from sparcli.core.text import Line, Span
 from sparcli.core.theme import theme
 from sparcli.core.width import truncate_line, wrap_line
@@ -131,13 +135,71 @@ def render_card(parts: CardParts, max_width: int, caps: RenderCaps) -> Rendered:
     """
     opts = parts.opts
     border = _effective_border(opts.border, caps)
-    outer = max_width if opts.width is None else min(opts.width, max_width)
     columns = _border_columns(border)
+    outer = _outer_width(parts, max_width, columns)
     if outer <= columns:
         return Rendered.empty()
     styles = _resolved_styles(opts, caps.support)
     regions = _build_regions(parts, styles, outer - columns, border)
     return _assemble(parts, regions, border)
+
+
+def _outer_width(parts: CardParts, max_width: int, columns: int) -> int:
+    """
+    Resolves the card's outer width in columns.
+
+    A card fills the width it is given, which is what makes it read as a panel
+    rather than a label. Without a terminal there is no width to fill, so an
+    unconstrained card falls back to its natural content width instead of
+    stretching to :data:`UNCONSTRAINED_WIDTH`. An explicit width always wins,
+    capped at what is available.
+
+    Parameters
+    ----------
+    parts : CardParts
+        The card's content, title, footer and options.
+    max_width : int
+        The width available to the card.
+    columns : int
+        The columns the vertical border glyphs consume.
+
+    Returns
+    -------
+    int
+        The outer width the card should occupy.
+    """
+    opts = parts.opts
+    if opts.width is not None:
+        return min(opts.width, max_width)
+    if max_width != UNCONSTRAINED_WIDTH:
+        return max_width
+    return _natural_width(parts) + columns
+
+
+def _natural_width(parts: CardParts) -> int:
+    """
+    Returns the widest slot's content width plus that slot's padding.
+
+    The three slots pad independently, so the widest row is not simply the
+    widest text: a narrow title with wide padding can still be the widest.
+
+    Parameters
+    ----------
+    parts : CardParts
+        The card's content, title, footer and options.
+
+    Returns
+    -------
+    int
+        The natural width of the card's surface.
+    """
+    opts = parts.opts
+    widths = [parts.content.width() + opts.padding.horizontal()]
+    if parts.title is not None:
+        widths.append(parts.title.width() + opts.title_padding.horizontal())
+    if parts.footer is not None:
+        widths.append(parts.footer.width() + opts.footer_padding.horizontal())
+    return max(widths)
 
 
 def _effective_border(border: BorderType, caps: RenderCaps) -> BorderType:

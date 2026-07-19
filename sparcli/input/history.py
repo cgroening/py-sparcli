@@ -104,7 +104,11 @@ class History:
         except OSError as error:
             logger.warning("could not read history file: %s", error)
             return
-        self._entries = _split_lines(contents)
+        # Keep only the newest ``max`` lines. The file is foreign input - it
+        # may have been written by an older build with a larger limit, or have
+        # grown unbounded - and ``max`` is what the caller asked to hold.
+        lines = _split_lines(contents)
+        self._entries = lines[-self._max :] if self._max else []
 
     def save(self) -> None:
         """Saves entries to the backing file, creating directories as needed."""

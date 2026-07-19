@@ -137,5 +137,5 @@ class Spinner:
     def _ensure_inplace(self) -> InPlace:
         """Returns the in-place engine, creating a lazy one on first use."""
         if self._inplace is None:
-            self._inplace = InPlace.create()
+            self._inplace = InPlace.progress()
         return self._inplace
