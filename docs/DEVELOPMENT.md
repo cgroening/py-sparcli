@@ -5,8 +5,7 @@ How to build, test and work on `sparcli`. This is a dependency-free Python libra
 ## Prerequisites
 
 - Python 3.12 or newer (the code uses PEP 695 generics and `type` statements).
-- The dev tools `ruff`, `basedpyright`, `pytest` and `pytest-cov`, plus `pip-audit` and `pre-commit`. No runtime dependencies and no system dependencies beyond a terminal.
-- Optionally [`just`](https://github.com/casey/just), which runs the whole gate in one command.
+- The dev tools `ruff`, `basedpyright`, `pytest` and `pytest-cov`, plus `pip-audit`. No runtime dependencies and no system dependencies beyond a terminal.
 
 Install the package in editable mode together with the dev tools:
 
@@ -17,15 +16,17 @@ pip install --group dev
 
 ## The quality gate
 
-The `justfile` is the single definition of what has to pass:
+Four commands define what has to pass. All four must be clean before a change is ready:
 
 ```bash
-just check      # lint, format, types, tests and pip-audit
-just fix        # apply what ruff can repair on its own
-just hooks      # install the pre-commit hooks once per clone
+ruff check .                   # lint
+ruff format --check .          # formatting
+basedpyright sparcli examples  # strict type checking, zero errors
+python -m pytest -q            # tests, doctests and the coverage gate
+pip-audit .                    # known vulnerabilities in the dev toolchain
 ```
 
-Everything below spells out the individual steps that `just check` bundles.
+`ruff check --fix . && ruff format .` applies what ruff can repair on its own. The sections below spell each step out.
 
 ## Test
 
@@ -146,5 +147,5 @@ def test_types_and_submits() -> None:
 2. Keep the dependency direction: import only from `core` (and, within a layer, sibling helpers). Never import `output` or `input` from `core`.
 3. Add unit tests under `tests/`, following the patterns above. Name tests for the behavior they assert.
 4. Re-export the public type from `sparcli/__init__.py` and add it to `__all__`; free-function utilities go into the relevant facade submodule.
-5. Run `just check` until clean (or the individual commands above).
+5. Run the quality gate above until clean.
 6. Add a docstring to every public item (with a `# Examples` doctest where the usage is not obvious) and update `README.md` and, if relevant, the example gallery.

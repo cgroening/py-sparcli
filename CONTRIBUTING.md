@@ -16,12 +16,7 @@ ruff format --check .          # formatting (drop --check to apply)
 basedpyright sparcli examples  # strict type checking
 ```
 
-All three checks must be clean before a change is ready. Optionally, install the pre-commit hooks to run linting, formatting and type checks automatically:
-
-```bash
-pre-commit install          # once
-pre-commit run --all-files  # on demand
-```
+All four checks must be clean before a change is ready.
 
 ## Ground rules
 

@@ -65,14 +65,7 @@ sparcli is a library, not a CLI program, so §1.6 binds it only through what it 
 - **Type checking:** `basedpyright` in **strict** mode must report 0 errors. Complete, modern type hints (`X | None`, builtin generics, PEP 695).
 - No em dash; straight quotes/apostrophes; named constants instead of magic numbers/strings.
 
-Commands (from the project root):
-
-```bash
-just check      # the full gate: lint, format, types, tests, pip-audit
-just fix        # ruff check --fix . && ruff format .
-```
-
-Individually, if `just` is unavailable:
+Commands (from the project root, all four must be clean):
 
 ```bash
 ruff check --fix . && ruff format .
