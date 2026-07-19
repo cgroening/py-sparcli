@@ -14,7 +14,7 @@ sparcli is a native Python port of the Rust library of the same name. It renders
 
 ## Highlights
 
-- Output: styled text, inline markup, tables (colspan, rowspan, striping, wrapping, titles), panels, alerts, rules, lists, trees, key-value lists, badges, progress bars, spinners, multi-progress, diffs, columns, live in-place display, pager, and the composition helpers `align`, `pad` and `vstack`.
+- Output: styled text, inline markup, tables (colspan, rowspan, striping, wrapping, titles), panels, cards (a filled surface whose whole palette is derived from one accent color), alerts, rules, lists, trees, key-value lists, badges, progress bars, spinners, multi-progress, diffs, columns, live in-place display, pager, and the composition helpers `align`, `pad` and `vstack`.
 - Input: confirm, text (validation, character filters, history, ghost autocomplete, dropdown), password, number (with a calculator), textarea, single and multi select, an inline fuzzy select, and a calendar date picker.
 - A unified `Theme` for input and output, set once and overridable per call.
 - Robust by design: prompts never raise on input, a RAII terminal guard restores the terminal, and results come back as values rather than exceptions.
@@ -40,7 +40,7 @@ sparcli requires Python 3.12 or newer.
 | Category | Components |
 | --- | --- |
 | Text and style | `Style`, `Color`, `Attribute`, `Span`, `Line`, `Text`, `markup` |
-| Framing and layout | `Panel`, `Rule`, `Columns`, `align`, `pad`, `vstack`, `BorderType`, `Align`, `Edges`, `Title` |
+| Framing and layout | `Panel`, `Card`, `Rule`, `Columns`, `align`, `pad`, `vstack`, `BorderType`, `Align`, `Edges`, `Title` |
 | Data widgets | `Table` (`Column`, `Cell`), `List` (`Marker`), `Tree` (`TreeNode`), `KeyValue`, `Diff`, `Badge`, `Alert` (`AlertKind`) |
 | Progress and live | `Spinner` (`SpinnerStyle`), `ProgressBar` (`ProgressStyle`, `Thresholds`), `MultiProgress`, `Live`, `Pager` |
 | Input prompts | `TextInput`, `PasswordInput`, `NumberInput`, `Confirm`, `Select`, `FuzzySelect`, `DatePicker`, `Textarea` |
@@ -86,6 +86,30 @@ Panel("All systems nominal.").title("Status").print()
 │ All systems nominal. │
 ╰──────────────────────╯
 ```
+
+Where a `Panel` draws a frame, a `Card` fills a surface. It takes a single accent color and derives everything else from it through HSL: the title stays saturated, the body text and both backgrounds become desaturated, darker shades of the same hue. Title and footer sit on rows of their own, each with its own background, and each region takes its own padding and alignment.
+
+```python
+from sparcli import BorderType, Card, Color
+
+Card("Deployed to production.").title("Release 1.4.0").footer(
+    "3 minutes ago"
+).accent(Color.from_hex("#a6e3a1") or Color.GREEN).border(
+    BorderType.TALL
+).width(40).print()
+```
+
+```text
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Release 1.4.0                        ┃
+┃                                      ┃
+┃ Deployed to production.              ┃
+┃                                      ┃
+┃ 3 minutes ago                        ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+```
+
+That block is what the card degrades to, because the preview above is captured without color. With truecolor, `BorderType.TALL` draws a thin block frame instead: the side bars ink a quarter of their cell's width and the top and bottom lines an eighth of their cell's height, which comes out equally thick since a terminal cell is about twice as tall as it is wide, and the horizontal lines run across the corner cells so the corners close. Only `Card` renders it that way – the bars need a filled surface to read against, so every other framed widget receives the heavy line glyphs shown here. The same applies to a card without truecolor support, and `BorderType.ASCII` takes over when the theme disables Unicode.
 
 ## Input example
 

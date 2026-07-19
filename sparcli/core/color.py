@@ -105,6 +105,36 @@ _NAME_ALIASES: dict[str, ColorName] = {
 
 _HEX_DIGITS = 6
 
+# Standard xterm RGB values of the sixteen named colors, by palette index.
+_ANSI16_RGB: tuple[tuple[int, int, int], ...] = (
+    (0x00, 0x00, 0x00),  # 0  black
+    (0x80, 0x00, 0x00),  # 1  red
+    (0x00, 0x80, 0x00),  # 2  green
+    (0x80, 0x80, 0x00),  # 3  yellow
+    (0x00, 0x00, 0x80),  # 4  blue
+    (0x80, 0x00, 0x80),  # 5  magenta
+    (0x00, 0x80, 0x80),  # 6  cyan
+    (0xC0, 0xC0, 0xC0),  # 7  gray
+    (0x80, 0x80, 0x80),  # 8  dark gray
+    (0xFF, 0x00, 0x00),  # 9  light red
+    (0x00, 0xFF, 0x00),  # 10 light green
+    (0xFF, 0xFF, 0x00),  # 11 light yellow
+    (0x00, 0x00, 0xFF),  # 12 light blue
+    (0xFF, 0x00, 0xFF),  # 13 light magenta
+    (0x00, 0xFF, 0xFF),  # 14 light cyan
+    (0xFF, 0xFF, 0xFF),  # 15 white
+)
+
+# The 6x6x6 color cube occupying palette indices 16..231.
+_CUBE_LEVELS = (0, 95, 135, 175, 215, 255)
+_CUBE_START = 16
+_CUBE_PLANE = 36
+_CUBE_ROW = 6
+
+# The grayscale ramp occupying palette indices 232..255.
+_GRAY_BASE = 8
+_GRAY_STEP = 10
+
 
 class Color:
     """
@@ -217,6 +247,41 @@ class Color:
             return None
         return cls.rgb(value >> 16 & 0xFF, value >> 8 & 0xFF, value & 0xFF)
 
+    def to_rgb(self) -> tuple[int, int, int] | None:
+        """
+        Returns the 24-bit value of this color, if it has one.
+
+        Named colors and palette indices resolve through the standard xterm
+        palette: slots 0-15 from a fixed table, 16-231 from the 6x6x6 color
+        cube, 232-255 from the grayscale ramp.
+
+        Returns
+        -------
+        tuple[int, int, int] | None
+            The red, green and blue channels, or ``None`` for
+            :data:`Color.RESET`, which adopts the terminal's default color and
+            therefore has no fixed value.
+
+        Examples
+        --------
+        >>> from sparcli.core.color import Color
+        >>> Color.rgb(1, 2, 3).to_rgb()
+        (1, 2, 3)
+        >>> Color.LIGHT_RED.to_rgb()
+        (255, 0, 0)
+        >>> Color.indexed(196).to_rgb()
+        (255, 0, 0)
+        >>> Color.RESET.to_rgb() is None
+        True
+        """
+        if self._rgb is not None:
+            return self._rgb
+        if self._index is not None:
+            return _indexed_to_rgb(self._index)
+        if self._name is not None and self._name is not ColorName.RESET:
+            return _ANSI16_RGB[_ANSI16_INDEX[self._name]]
+        return None
+
     def resolve(self, support: ColorSupport) -> ResolvedColor | None:
         """
         Resolves the color for a given support level, downgrading if needed.
@@ -302,6 +367,25 @@ def _indexed_to_ansi16(index: int) -> int:
     if index >= _GRAYSCALE_DARK:
         return 8
     return 7
+
+
+def _indexed_to_rgb(index: int) -> tuple[int, int, int]:
+    """Maps a 256-color index onto its RGB value."""
+    if index < _CUBE_START:
+        return _ANSI16_RGB[index]
+    if index >= _GRAYSCALE_DARK:
+        level = _GRAY_BASE + (index - _GRAYSCALE_DARK) * _GRAY_STEP
+        return (level, level, level)
+    return _cube_to_rgb(index - _CUBE_START)
+
+
+def _cube_to_rgb(offset: int) -> tuple[int, int, int]:
+    """Maps an offset into the 6x6x6 color cube onto its RGB value."""
+    return (
+        _CUBE_LEVELS[offset // _CUBE_PLANE],
+        _CUBE_LEVELS[(offset // _CUBE_ROW) % _CUBE_ROW],
+        _CUBE_LEVELS[offset % _CUBE_ROW],
+    )
 
 
 def _install_named_colors() -> None:

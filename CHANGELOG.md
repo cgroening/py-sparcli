@@ -8,12 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `Card`, a filled counterpart to `Panel`: a colored surface with its own title and footer rows instead of a title embedded in the border. A single `accent()` derives the whole palette through HSL – the title keeps the accent saturated, the body text and both backgrounds become desaturated, darker shades of the same hue. The border is opt-in, the card fills the width it is rendered into, content wraps, and title, body and footer each take their own padding and alignment. The style setters patch the derived values rather than replacing them. Below truecolor support the backgrounds are dropped and the card renders as accented text, because the derived shades would collapse onto one ANSI-16 color. Ported from the Rust original, whose output it matches byte for byte.
+- `BorderType.TALL`, a thin block border around a card's filled surface: the side bars ink a quarter of their cell's width and the top and bottom lines an eighth of their cell's height, which comes out equally thick because a terminal cell is about twice as tall as it is wide, and the horizontal lines run across the corner cells so the corners close. Only `Card` draws it natively – the bars need a filled surface to read against, all four edges use a different glyph, and the right-hand one is painted with foreground and background swapped, none of which `BorderChars` can express. Every other widget receives the `BorderType.THICK` glyphs from `BorderType.chars`.
+- `Color.to_rgb` returns the 24-bit value of any color: named colors and palette indices resolve through the standard xterm palette (fixed table, 6x6x6 cube, grayscale ramp). `Color.RESET` has no fixed value and returns `None`.
+- `width.wrap_line` and `width.truncate_line` are style-preserving counterparts to `wrap` and `truncate`. They keep each span's style and hyperlink, and a word straddling a span boundary stays whole instead of being wrapped apart.
 - Coverage gate: `pytest` now measures branch coverage of `sparcli` and fails below the configured threshold.
 - `justfile` with the full quality gate (`just check` runs lint, format, types, tests and `pip-audit`).
 - Direct test coverage for `output/box.py`, `output/table/plan.py`, the key decoding primitives, persisted history and the external editor/pager command handling.
 
 ### Changed
 
+- `sparcli.core.width` is a package: `measure` holds the plain-string helpers, `line` the style-preserving ones. Every importer keeps writing `from sparcli.core.width import ...`, and the `sparcli.width` namespace is unchanged.
 - The Ruff rule set now covers the full documented list (docstrings, annotations, complexity, security, pathlib, pytest and more) instead of nine groups; every exception carries a comment explaining why.
 - `InPlace` moved from `sparcli.output.live` to `sparcli.core.inplace` so that `input` no longer depends on `output`. It is still re-exported from `sparcli.output.live` and the flat `sparcli` namespace, so imports keep working.
 - `TextInput` delegates suggestion handling to `sparcli.input.completion.Completion` and history recall to `sparcli.input.recall.HistoryRecall`. Public behavior and the builder API are unchanged.

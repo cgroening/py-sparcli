@@ -1,8 +1,8 @@
 """
-sparcli.core.width
-==================
+sparcli.core.width.measure
+==========================
 
-Computes display width and reflows text, aware of Unicode and ANSI escapes.
+Computes display width and reflows plain text, aware of Unicode and ANSI.
 
 Wide glyphs (CJK, many emoji) count as two columns, zero-width combining marks
 as zero, and ANSI escape sequences as nothing. These helpers are the basis for

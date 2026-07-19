@@ -15,6 +15,7 @@ from sparcli import (
     Align,
     Badge,
     BorderType,
+    Card,
     Cell,
     Color,
     Column,
@@ -125,6 +126,32 @@ def panels() -> None:
     ).subtitle("subtitle").content_align(Align.CENTER).fill(
         Style.new().with_bg(Color.indexed(236))
     ).width(40).print()
+
+
+def cards() -> None:
+    """Cards: filled surfaces whose colors all come from one accent."""
+    section("Cards")
+    Card("Every tone is derived from the theme accent.").title("Default").width(
+        52
+    ).print()
+    print()
+    Card("A single accent sets title, surface, text and border.").title(
+        "Derived from one color"
+    ).footer("border and footer, same accent").accent(
+        Color.from_hex("#a6e3a1") or Color.GREEN
+    ).border(BorderType.ROUNDED).width(52).print()
+    print()
+    Card("A thin block frame with even strokes and closed corners.").title(
+        "Tall border"
+    ).accent(Color.from_hex("#cba6f7") or Color.MAGENTA).border(
+        BorderType.TALL
+    ).title_padding(Edges.symmetric(1, 1)).width(52).print()
+    print()
+    Card("Centered, flat title, wider padding.").title("Flat").accent(
+        Color.from_hex("#f9e2af") or Color.YELLOW
+    ).flat_title().title_align(Align.CENTER).content_align(
+        Align.CENTER
+    ).padding(Edges.symmetric(1, 3)).width(52).print()
 
 
 def tables() -> None:
@@ -253,6 +280,7 @@ def main() -> None:
     sections()
     alerts()
     panels()
+    cards()
     tables()
     lists_and_trees()
     key_values_and_badges()

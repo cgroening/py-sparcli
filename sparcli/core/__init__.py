@@ -43,7 +43,14 @@ from sparcli.core.text import (
     into_text,
 )
 from sparcli.core.theme import DEFAULT_ACCENT, Theme, set_theme, theme
-from sparcli.core.width import strip_ansi, truncate, visible_width, wrap
+from sparcli.core.width import (
+    strip_ansi,
+    truncate,
+    truncate_line,
+    visible_width,
+    wrap,
+    wrap_line,
+)
 
 __all__ = [
     "DEFAULT_ACCENT",
@@ -87,8 +94,10 @@ __all__ = [
     "terminal_size",
     "theme",
     "truncate",
+    "truncate_line",
     "visible_width",
     "wrap",
+    "wrap_line",
     "write_line",
     "write_rendered",
 ]

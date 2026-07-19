@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from conftest import plain_lines
 
-from sparcli.core.border import BorderType
+from sparcli.core.border import TALL, BorderType
 from sparcli.core.geometry import Align, Edges, Title
 from sparcli.core.render import Rendered
 from sparcli.core.text import Text
@@ -148,3 +148,24 @@ class TestBoxOpts:
         first = BoxOpts()
         second = BoxOpts()
         assert first.padding is not second.padding
+
+
+class TestTallBorder:
+    def test_degrades_to_thick_glyphs(self) -> None:
+        # Widgets that cannot draw block glyphs read chars() directly, so this
+        # is what keeps them from raising a KeyError or drawing a blank frame.
+        assert BorderType.TALL.chars() == BorderType.THICK.chars()
+
+    def test_is_a_border_of_its_own(self) -> None:
+        assert BorderType.TALL.is_tall()
+        assert not BorderType.TALL.is_none()
+        assert not BorderType.THICK.is_tall()
+
+    def test_strokes_are_equally_thick_on_both_axes(self) -> None:
+        # A quarter of the cell width and an eighth of its height come out the
+        # same number of pixels, because a cell is about twice as tall as it is
+        # wide. Equal fractions on both axes would not.
+        assert TALL.left == "▎"
+        assert TALL.right == "▊"
+        assert TALL.top == "▁"
+        assert TALL.bottom == "▔"

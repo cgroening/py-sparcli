@@ -11,6 +11,7 @@ re-exports the full set for flat imports; the composition helpers
 
 from sparcli.output.alert import Alert, AlertKind
 from sparcli.output.badge import Badge
+from sparcli.output.card import Card
 from sparcli.output.columns import Columns
 from sparcli.output.compose import align, pad, vstack
 from sparcli.output.diff import Diff
@@ -30,6 +31,7 @@ __all__ = [
     "Alert",
     "AlertKind",
     "Badge",
+    "Card",
     "Cell",
     "Column",
     "Columns",

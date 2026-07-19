@@ -77,9 +77,13 @@ Piping the static examples (`| cat`, `> file`) or setting `NO_COLOR=1` yields pl
 
 ```text
 sparcli/
-  core/     Foundation: color, style, text, markup, theme, border, geometry,
-            width, terminal, render, inplace. No widget logic.
-  output/   Printable widgets implementing Renderable.
+  core/     Foundation: color, hsl, style, text, markup, theme, border,
+            geometry, width, terminal, render, inplace. No widget logic.
+            width/ is a package: measure holds the plain-string helpers,
+            line the style-preserving ones.
+  output/   Printable widgets implementing Renderable. A widget large enough
+            to warrant it becomes a package instead of a module, splitting
+            along responsibilities: table/ and card/ do this.
   input/    Interactive prompts over an EventSource, plus the shared line
             editor, terminal guard, prompt driver and the collaborators the
             prompts are composed from: completion, recall, selection and the

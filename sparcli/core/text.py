@@ -16,7 +16,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 
 from sparcli.core.style import Style
-from sparcli.core.width import visible_width
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +53,10 @@ class Span:
 
     def width(self) -> int:
         """Returns the display width of the span in columns."""
+        # Deferred because sparcli.core.width.line builds Span objects, so a
+        # module-level import here would close an import cycle.
+        from sparcli.core.width import visible_width
+
         return visible_width(self.content)
 
 

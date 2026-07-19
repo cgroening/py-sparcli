@@ -32,7 +32,7 @@ Requirements for all future sessions in this project. On conflict, this file tak
 - `input/` – interactive prompts over `EventSource` (DI) + the `prompt.run_prompt` loop and `prompt.run_on_terminal` guard + `line_edit.LineEditor` (SSOT for text editing, plus the shared `CTRL_ACTIONS` tables and `apply_caret_key`) + `field` (rendering). The prompts are composed from small collaborators: `completion.Completion`, `recall.HistoryRecall`, `selection.SelectionCursor` and the `keydecode` byte primitives.
 - **Dependency direction:** `output`/`input` → `core`. Never cyclic, never `core` → widget layer, and never `input` → `output` (this is why `InPlace` lives in `core/inplace.py`; `output/live.py` re-exports it for the public API).
 - **A single unified theme** in `core/theme.py` drives both input and output.
-- The public API is re-exported flat (`from sparcli import ...`, 80 symbols) plus the namespaces `sparcli.width/terminal/markup/event/validate/shortcut`. Every `__init__.py` carries an explicit `__all__` list.
+- The public API is re-exported flat (`from sparcli import ...`, 81 symbols) plus the namespaces `sparcli.width/terminal/markup/event/validate/shortcut`. Every `__init__.py` carries an explicit `__all__` list.
 
 ## Dependencies
 
