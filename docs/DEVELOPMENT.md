@@ -54,7 +54,7 @@ basedpyright sparcli examples # strict type checking
 
 Both `ruff check` and `basedpyright` must be clean. The project targets strict typing: every public item is annotated, and `ruff` runs the full documented rule set, including docstring style (NumPy convention), annotations, complexity, security (`flake8-bandit`), `pathlib` usage and import ordering. Line length is enforced at 80 columns.
 
-Every entry in the `ignore` list in `pyproject.toml` carries a comment saying why it is there. The two that most often surprise newcomers: `D401` is off because the style guide mandates third-person docstring summaries ("Returns ...") where that rule wants the imperative, and `FBT001`/`FBT002` are off because the fluent builder API takes booleans by design (`Table.striped(True)`) to mirror the Rust port.
+Every entry in the `ignore` list in `pyproject.toml` carries a comment saying why it is there. The two that most often surprise newcomers: `D401` is off because docstring summaries are written in the third person ("Returns ...") where that rule wants the imperative, and `FBT001`/`FBT002` are off because the fluent builder API takes booleans by design (`Table.striped(True)`) to mirror the Rust port.
 
 Dependencies are audited separately:
 

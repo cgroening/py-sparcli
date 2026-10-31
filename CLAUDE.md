@@ -1,6 +1,6 @@
 # CLAUDE.md – sparcli (Python)
 
-Requirements for all future sessions in this project. On conflict, this file takes precedence over general conventions, but not over explicit user instructions. The global style guide (`~/.claude/CLAUDE.md` → §12 Python) applies additionally; this file refines and overrides it wherever it is more specific.
+Requirements for all future sessions in this project. On conflict, this file takes precedence over general conventions, but not over explicit user instructions.
 
 ## What is this?
 
@@ -37,13 +37,13 @@ Requirements for all future sessions in this project. On conflict, this file tak
 
 Where a rule applies in more than one widget it lives in exactly one place. Do not reimplement these per call site: `core.width.truncate`/`truncate_line` for `…` clipping, `input.selection.SelectionCursor` for cursor and scroll window, `input.prompt.run_on_terminal` for the terminal handover, `core.command.split_command`/`resolve_from_env` for external commands.
 
-## Output streams (§1.6)
+## Output streams
 
-sparcli is a library, not a CLI program, so §1.6 binds it only through what it prints:
+sparcli is a library, not a CLI program, so the CLI output rules bind it only through what it prints:
 
 - Payload goes to **stdout**, progress indicators to **stderr**, and progress draws only when stderr is a terminal. `InPlace.progress()` is the seam.
 - `print`/`print_to` do **not** truncate when stdout is not a terminal: they lay out at `UNCONSTRAINED_WIDTH`, because clipping to an invented width loses piped data silently. An explicit `render(max_width)` still truncates – that width is the caller's decision.
-- §1.7 (TUI) rules – scrollbar on overflow, a `?` overlay in every prompt, `Ctrl+Q` – are deliberately **not** implemented. They govern terminal UIs, not a CLI output library.
+- TUI rules – scrollbar on overflow, a `?` overlay in every prompt, `Ctrl+Q` – are deliberately **not** implemented. They govern terminal UIs, not a CLI output library.
 - The public API is re-exported flat (`from sparcli import ...`, 81 symbols) plus the namespaces `sparcli.width/terminal/markup/event/validate/shortcut`. Every `__init__.py` carries an explicit `__all__` list.
 
 ## Dependencies
@@ -60,7 +60,7 @@ sparcli is a library, not a CLI program, so §1.6 binds it only through what it 
 
 - Target Python: **3.12+** (`requires-python = ">=3.12"`).
 - **Strings: double quotes `"..."`** everywhere, including nested inside f-strings (PEP 701). Enforced via the `Q` lint rules with `inline-quotes = "double"` and `avoid-escape = false`; the formatter uses `quote-style = "preserve"` so it cannot rewrite the nested case back to single quotes. `repr` outputs in doctests keep their single quotes, because that is what Python prints.
-- **Formatting/linting:** `ruff` (format + lint), running the full rule set from the style guide. 80-character lines, enforced (`E501` is on). Imports isort-sorted (stdlib → third-party → local). `from __future__ import annotations` as the first line of every module. Every entry in the `ignore` list carries a comment saying why.
+- **Formatting/linting:** `ruff` (format + lint) with the rule set in `pyproject.toml`. 80-character lines, enforced (`E501` is on). Imports isort-sorted (stdlib → third-party → local). `from __future__ import annotations` as the first line of every module. Every entry in the `ignore` list carries a comment saying why.
 - **Docstrings:** NumPy convention. The fluent builder setters keep a single-line docstring instead of full `Parameters`/`Returns` blocks – they take one argument and return `self`, so the blocks would add length without information. Full blocks are required everywhere else.
 - **Type checking:** `basedpyright` in **strict** mode must report 0 errors. Complete, modern type hints (`X | None`, builtin generics, PEP 695).
 - No em dash; straight quotes/apostrophes; named constants instead of magic numbers/strings.

@@ -82,8 +82,8 @@ select = [
     "TID", "PL", "RUF",
 ]
 # The numpy convention disables D212 and D213 alike, which silently permits
-# both layouts. D213 has to be re-enabled explicitly to enforce the one the
-# style guide mandates: summary on the line after the opening quotes.
+# both layouts. D213 has to be re-enabled explicitly to enforce the one used
+# here: summary on the line after the opening quotes.
 extend-select = ["D213"]
 
 ignore = [
@@ -91,8 +91,8 @@ ignore = [
     "TRY003",
     # Forbids deferred imports, which break the layering here.
     "PLC0415",
-    # Demands imperative docstrings; the style guide mandates third
-    # person singular ("Returns ..."), so this rule is inverted for us.
+    # Demands imperative docstrings; summaries here use the third person
+    # singular ("Returns ..."), so this rule is inverted for us.
     "D401",
     # Widget constructors are keyword-only by design and mirror the Rust
     # port's builder API, so their argument count is intentional.
@@ -112,15 +112,15 @@ ignore = [
     # callbacks are fixed-signature contracts; an implementation that does not
     # need a parameter still has to accept it under that exact name.
     "ARG002",
-    # The style guide mandates the en dash in prose, which this rule flags as
-    # an ambiguous character.
+    # Prose uses the en dash, which this rule flags as an ambiguous
+    # character.
     "RUF002",
     # Conflicts with D213 (summary on the line after the opening quotes).
     "D212",
 ]
 
 [tool.ruff.lint.pylint]
-# Guard-clause style (style guide 1.2.5) produces many early returns by
+# Guard-clause style produces many early returns by
 # design; the dispatch functions here top out at eight.
 max-returns = 8
 

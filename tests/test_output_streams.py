@@ -1,5 +1,5 @@
 """
-Tests for the CLI output rules of section 1.6 of the style guide.
+Tests for the CLI output rules.
 
 Two rules are load-bearing for a program that pipes its output onward: payload
 goes to stdout while progress goes to stderr, and nothing is truncated when
