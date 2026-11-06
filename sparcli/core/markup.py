@@ -18,6 +18,7 @@ from sparcli.core.color import Color
 from sparcli.core.render import Renderable, Rendered
 from sparcli.core.style import Attribute, Style
 from sparcli.core.text import Line, Span, Text
+from sparcli.core.theme import theme
 
 _BACKGROUND_KEYWORD = "on"
 
@@ -163,13 +164,13 @@ class _Parser:
         return end + 1
 
     def _toggle_code(self) -> None:
-        """Toggles a cyan code style on or off at the current nesting."""
+        """Toggles the theme's code style on or off at the current nesting."""
         self._flush_buffer()
         if self._in_code:
             if len(self._stack) > 1:
                 self._stack.pop()
         else:
-            code = self._current().patch(Style.new().with_fg(Color.CYAN))
+            code = self._current().patch(theme().code)
             self._stack.append(code)
         self._in_code = not self._in_code
 

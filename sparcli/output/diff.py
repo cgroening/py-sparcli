@@ -14,12 +14,14 @@ fall back to a plain delete-then-insert listing.
 from __future__ import annotations
 
 import enum
+from typing import TYPE_CHECKING
 
-from sparcli.core.color import Color
 from sparcli.core.render import Renderable, Rendered
-from sparcli.core.style import Style
 from sparcli.core.text import Line
 from sparcli.core.theme import theme
+
+if TYPE_CHECKING:
+    from sparcli.core.style import Style
 
 # Default number of unchanged context lines kept around each change.
 DEFAULT_CONTEXT = 3
@@ -88,12 +90,10 @@ class Diff(Renderable):
         self._old_label = old_label
         self._new_label = new_label
         self._add_style = (
-            add_style
-            if add_style is not None
-            else Style.from_color(Color.GREEN)
+            add_style if add_style is not None else theme().diff_add
         )
         self._del_style = (
-            del_style if del_style is not None else Style.from_color(Color.RED)
+            del_style if del_style is not None else theme().diff_delete
         )
         self._hunk_style = (
             hunk_style if hunk_style is not None else theme().secondary

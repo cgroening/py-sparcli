@@ -30,6 +30,11 @@ _DEBUG = Style.from_color(Color.MAGENTA)
 _SECONDARY = Style.new().dim()
 _SELECTION = Style.from_color(DEFAULT_ACCENT).bold()
 _CURSOR = Style.new().with_fg(Color.BLACK).with_bg(DEFAULT_ACCENT)
+_DIFF_ADD = Style.from_color(Color.GREEN)
+_DIFF_DELETE = Style.from_color(Color.RED)
+_PROGRESS_EMPTY = Color.DARK_GRAY
+_CODE = Style.from_color(Color.CYAN)
+_STRIPE = Style.new().dim()
 
 # Two-step glyphs: (unicode, ascii). ASCII is the fallback for plain terminals.
 _BULLET = ("•", "*")
@@ -53,6 +58,14 @@ class Theme:
         Semantic styles applied throughout the library.
     selection, cursor : Style
         Styles for the highlighted item and the text cursor.
+    diff_add, diff_delete : Style
+        Styles for added and removed lines in a diff.
+    progress_empty : Color
+        Color of the empty part of a progress bar.
+    code : Style
+        Style for backtick code spans in markup.
+    stripe : Style
+        Style for the shaded rows of a striped table.
     border : BorderType
         The default border look.
     unicode : bool
@@ -71,6 +84,11 @@ class Theme:
     hint: Style = _SECONDARY
     selection: Style = _SELECTION
     cursor: Style = _CURSOR
+    diff_add: Style = _DIFF_ADD
+    diff_delete: Style = _DIFF_DELETE
+    progress_empty: Color = _PROGRESS_EMPTY
+    code: Style = _CODE
+    stripe: Style = _STRIPE
     border: BorderType = BorderType.ROUNDED
     unicode: bool = True
 

@@ -194,7 +194,7 @@ class TableOpts:
     header: bool = True
     header_style: Style = field(default_factory=Style)
     striped: bool = False
-    stripe_style: Style = field(default_factory=lambda: Style().dim())
+    stripe_style: Style = field(default_factory=lambda: theme().stripe)
     title: Text | None = None
     title_style: Style = field(default_factory=Style)
     pad: int = 1
@@ -261,7 +261,7 @@ class Table(Renderable):
             ),
             striped=striped,
             stripe_style=(
-                stripe_style if stripe_style is not None else Style().dim()
+                stripe_style if stripe_style is not None else active.stripe
             ),
             title=into_text(title) if title is not None else None,
             title_style=(

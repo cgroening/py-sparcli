@@ -164,6 +164,8 @@ set_theme(
 active = theme()
 ```
 
+Every color a widget draws comes from the theme: the accent, the message roles (`success`, `error`, `warning`, `info`, `debug`), `secondary`/`hint`, `selection`/`cursor`, and the widget styles `diff_add`, `diff_delete`, `progress_empty`, `code` and `stripe`. `Color.from_name` also accepts the `ansi:<name>` tokens of the Rust toolkit family (`ansi:dark_gray`, `ansi:light_red`, ...), so one token means the same color everywhere.
+
 ## Output components
 
 The `output_readme.py` example composes a hero panel, a three-column dashboard and a progress bar:

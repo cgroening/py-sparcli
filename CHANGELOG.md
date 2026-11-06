@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.0] – 2026-11-06
+
+### Added
+
+- `Theme` has five new fields for styles that were fixed in code: `diff_add` and `diff_delete` (the diff's added and removed lines, default green and red), `progress_empty` (the empty part of a progress bar, default dark gray), `code` (backtick code spans in markup, default cyan) and `stripe` (the shaded rows of a striped table, default dim). `Diff`, `ProgressOpts`, the markup parser and `Table` read them, so an app can theme them; the defaults are the previous look. The fields have defaults, so existing `Theme(...)` calls keep working. Mirrors the Rust release 0.5.0.
+- `Color.from_name` accepts the ratada `ansi:<name>` tokens (`ansi:dark_gray`, `ansi:light_red`, ...; `ansi:white` is the bright white), so one token names the same color in the Python and the Rust toolkits.
+- `tests/test_theme_only_colours.py` fails on a color literal in the package outside the color type and the built-in theme.
+
+### Changed
+
+- The unselected buttons of `Confirm` use `theme.hint` instead of a fixed dim style; the default `hint` is that same dim style.
+
 ## [0.4.0] – 2026-07-19
 
 ### Added
@@ -88,7 +100,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Unified `Theme`, inline `markup`, width utilities, terminal capability detection, validators, shortcuts and command history.
 - Dependency-free (standard library only).
 
-[Unreleased]: https://github.com/cgroening/py-sparcli/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/cgroening/py-sparcli/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/cgroening/py-sparcli/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/cgroening/py-sparcli/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/cgroening/py-sparcli/compare/v0.1.0...v0.3.0
 [0.1.0]: https://github.com/cgroening/py-sparcli/releases/tag/v0.1.0

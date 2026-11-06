@@ -103,6 +103,28 @@ _NAME_ALIASES: dict[str, ColorName] = {
     "brightwhite": ColorName.WHITE,
 }
 
+# The ratada `ansi:<name>` tokens, so one token names the same color in every
+# crate and package of the family; `ansi:white` is the bright white.
+_ANSI_PREFIX = "ansi:"
+_ANSI_TOKENS: dict[str, ColorName] = {
+    "black": ColorName.BLACK,
+    "red": ColorName.RED,
+    "green": ColorName.GREEN,
+    "yellow": ColorName.YELLOW,
+    "blue": ColorName.BLUE,
+    "magenta": ColorName.MAGENTA,
+    "cyan": ColorName.CYAN,
+    "gray": ColorName.GRAY,
+    "dark_gray": ColorName.DARK_GRAY,
+    "light_red": ColorName.LIGHT_RED,
+    "light_green": ColorName.LIGHT_GREEN,
+    "light_yellow": ColorName.LIGHT_YELLOW,
+    "light_blue": ColorName.LIGHT_BLUE,
+    "light_magenta": ColorName.LIGHT_MAGENTA,
+    "light_cyan": ColorName.LIGHT_CYAN,
+    "white": ColorName.WHITE,
+}
+
 _HEX_DIGITS = 6
 
 # Standard xterm RGB values of the sixteen named colors, by palette index.
@@ -210,17 +232,35 @@ class Color:
         """
         Parses a color name (case-insensitive), returning ``None`` if unknown.
 
+        The ``ansi:<name>`` tokens of ratada are accepted too
+        (``ansi:dark_gray``, ``ansi:light_red``, ..., where ``ansi:white`` is
+        the bright white), so one token names the same color across the
+        toolkit family.
+
         Parameters
         ----------
         text : str
-            A color name such as ``"red"`` or an alias such as ``"purple"``.
+            A color name such as ``"red"``, an alias such as ``"purple"`` or a
+            token such as ``"ansi:dark_gray"``.
 
         Returns
         -------
         Color | None
             The matching color, or ``None`` when the name is not recognized.
+
+        Examples
+        --------
+        >>> Color.from_name("ansi:dark_gray") == Color.DARK_GRAY
+        True
+        >>> Color.from_name("ansi:white") == Color.WHITE
+        True
         """
-        name = _NAME_ALIASES.get(text.strip().lower())
+        lowered = text.strip().lower()
+        if lowered.startswith(_ANSI_PREFIX):
+            token = lowered.removeprefix(_ANSI_PREFIX).replace("grey", "gray")
+            name = _ANSI_TOKENS.get(token)
+        else:
+            name = _NAME_ALIASES.get(lowered)
         return cls(name=name) if name is not None else None
 
     @classmethod

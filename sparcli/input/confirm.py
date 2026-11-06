@@ -16,7 +16,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from sparcli.core.render import Rendered
-from sparcli.core.style import Style
 from sparcli.core.text import Line, Span
 from sparcli.core.theme import Theme, theme
 from sparcli.input.event import (
@@ -197,7 +196,7 @@ class Confirm:
 
 
 def _option_span(label: str, selected: bool, active: Theme) -> Span:
-    """Renders one option, highlighted when selected and dimmed otherwise."""
+    """Renders one option, highlighted when selected and as a hint otherwise."""
     if selected:
         return Span.styled(f"[{label}]", active.selection)
-    return Span.styled(f" {label} ", Style.new().dim())
+    return Span.styled(f" {label} ", active.hint)

@@ -17,13 +17,16 @@ from __future__ import annotations
 import enum
 import math
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from sparcli.core.color import Color
 from sparcli.core.inplace import InPlace
 from sparcli.core.render import Rendered
 from sparcli.core.style import Style
 from sparcli.core.text import Line, Span
 from sparcli.core.theme import theme
+
+if TYPE_CHECKING:
+    from sparcli.core.color import Color
 
 # Default bar width in columns.
 DEFAULT_WIDTH = 30
@@ -127,7 +130,7 @@ class ProgressOpts:
             left_cap="",
             right_cap="",
             fill_color=active.accent,
-            empty_color=Color.DARK_GRAY,
+            empty_color=active.progress_empty,
             thresholds=None,
             show_percent=True,
             show_value=False,
